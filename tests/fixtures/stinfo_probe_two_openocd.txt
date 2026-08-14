@@ -1,0 +1,13 @@
+Found 2 stlink programmers
+ serial: 543f6e06723f495507372267
+openocd: "\x54\x3f\x6e\x06\x72\x3f\x49\x55\x07\x37\x22\x67"
+ flash: 16384 (pagesize: 128)
+ sram: 8192
+ chipid: 0x0457
+ descr: L011 device
+ serial: 303030303030303030303031
+openocd: "\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x31"
+ flash: 131072 (pagesize: 2048)
+ sram: 16384
+ chipid: 0x0448
+ descr: F07x device

@@ -24,10 +24,11 @@ Use this checklist in order. Check items off in PRs / commits. Update `CHANGELOG
 
 ## Phase 2 — Device discovery
 
-- [ ] `services/device_service.py`: prefer `st-info --probe` parse; fallback pyusb VID `0x0483`
-- [ ] Normalize HLA serial for OpenOCD (document format in openocd-integration)
-- [ ] CLI smoke: `python -m batch_stlink_flasher.discover` (optional tiny entry) prints adapters
-- [ ] Unit tests with fixture stdout from `st-info`
+- [x] `services/device_service.py`: prefer `st-info --probe` parse; fallback pyusb VID `0x0483`
+- [x] Normalize HLA serial for OpenOCD (document format in openocd-integration)
+- [x] CLI smoke: `python -m batch_stlink_flasher.discover` prints adapters
+- [x] Unit tests with fixture stdout from `st-info`
+- [ ] Manual: run discover on a PC with ≥1 ST-Link plugged in (operator)
 
 **Done when**: connected probes list with serials on a real machine.
 

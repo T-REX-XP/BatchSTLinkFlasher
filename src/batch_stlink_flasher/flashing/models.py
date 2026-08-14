@@ -18,6 +18,9 @@ class AdapterInfo:
     product: str = ""
     manufacturer: str = ""
     usb_path: str | None = None
+    # False when OpenOCD cannot bind this probe by serial (e.g. clone with serial "%").
+    multi_adapter_ok: bool = True
+    skip_reason: str | None = None
 
 
 class JobState(Enum):

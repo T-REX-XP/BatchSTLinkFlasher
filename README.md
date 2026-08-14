@@ -33,7 +33,8 @@ python -m venv .venv
 .venv\Scripts\activate
 pip install -e ".[dev]"
 pytest
-python -m batch_stlink_flasher
+python -m batch_stlink_flasher.discover   # list ST-Links (Phase 2)
+python -m batch_stlink_flasher            # UI (Phase 5)
 ```
 
 ## Operator flow (target UX)

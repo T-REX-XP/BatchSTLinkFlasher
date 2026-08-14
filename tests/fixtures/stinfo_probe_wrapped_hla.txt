@@ -1,0 +1,8 @@
+Found 1 stlink programmers
+ serial:     303033413030323233343338353130323334333133393339
+ hla-serial: "\x30\x30\x33\x41\x30\x30\x32\x32\x33\x34\x33\x38\x35\x31\x30\x32\x33\x34\
+\x33\x31\x33\x39\x33\x39"
+ flash:      0 (pagesize: 0)
+ sram:       0
+ chipid:     0x0000
+ descr:      unknown device

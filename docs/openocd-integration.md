@@ -53,7 +53,26 @@ Adjust `interface` / `target` (or `board/...`) to the product under test. Wrong 
 st-info --probe
 ```
 
-Parse each probe block for `serial:` and any OpenOCD hex/`hla` hint. Pass the form OpenOCD expects (ASCII serial or `\xNN` escaped bytes for older clones).
+Parse each probe block for `serial:` and `hla-serial:` (older tools: `openocd:`).  
+App entry: `python -m batch_stlink_flasher.discover`
+
+### HLA normalization (app)
+
+Use `batch_stlink_flasher.util.hla_serial.normalize_hla_serial`:
+
+| Source | Handling |
+|--------|----------|
+| `hla-serial` / `openocd` | Keep `\xNN` escapes; ensure quoted (`"\x54\x3f…"`) |
+| `serial` hex text | Pairwise hex → bytes → quoted `\xNN` (strip trailing `0x00`) |
+| pyusb iSerial | Encode latin-1 bytes → quoted `\xNN` |
+
+Pass the normalized string to OpenOCD as one `-c` argument:
+
+```text
+-c hla_serial "\x54\x3f\x6e\x06\x72\x3f\x49\x55\x07\x37\x22\x67"
+```
+
+(`build_openocd_command` inserts `hla_serial ` + normalized value.)
 
 ### Fallback: wrong serial + debug log
 
@@ -63,9 +82,23 @@ openocd -d3 -f interface/stlink.cfg -f target/stm32f1x.cfg -c "hla_serial wrong_
 
 Search log for `Device serial number '…' doesn't match`.
 
+### Fallback: Windows PnP (recommended on Windows without st-info)
+
+The app enumerates `Win32_PnPEntity` instance IDs like
+`USB\VID_0483&PID_3748\<serial>` using the **official ST driver**.
+No libusb / Zadig change is required for discovery.
+
+Clone ST-Link V2 devices often expose a placeholder serial (`%`). Those probes
+are still listed (`multi_adapter_ok=false`); OpenOCD can flash them when they
+are the **only** adapter (omit `hla_serial`). Genuine unique serials are required
+for parallel multi-adapter runs.
+
 ### Fallback: pyusb
 
-Filter `idVendor == 0x0483` and ST-Link PIDs (e.g. `0x3748` V2, `0x374B` V2-1, others as needed). Read USB string descriptor iSerial.
+Filter `idVendor == 0x0483` and known ST-Link PIDs (see `STLINK_PIDS` in `device_service.py`).
+Requires a **libusb** backend. With the stock STMicroelectronics driver this
+usually fails with `No backend available` — prefer Windows PnP or install
+`st-info` instead of forcing Zadig unless you know you need WinUSB.
 
 ## Process lifecycle (app)
 

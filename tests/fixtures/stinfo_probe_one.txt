@@ -1,0 +1,7 @@
+Found 1 stlink programmers
+ serial:     303033413030323233343338353130323334333133393339
+ hla-serial: "\x30\x30\x33\x41\x30\x30\x32\x32\x33\x34\x33\x38\x35\x31\x30\x32\x33\x34\x33\x31\x33\x39\x33\x39"
+ flash:      131072 (pagesize: 128)
+ sram:       20480
+ chipid:     0x0447
+ descr:      L0xx Category 5
