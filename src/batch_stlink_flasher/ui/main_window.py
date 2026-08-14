@@ -7,6 +7,7 @@ from pathlib import Path
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QAction, QCloseEvent, QKeySequence
 from PySide6.QtWidgets import (
+    QFileDialog,
     QHBoxLayout,
     QLabel,
     QMainWindow,
@@ -20,7 +21,6 @@ from PySide6.QtWidgets import (
 
 from batch_stlink_flasher import __version__
 from batch_stlink_flasher.flashing.models import FlashConfig, JobState
-from batch_stlink_flasher.flashing.openocd import default_bin_base_address
 from batch_stlink_flasher.flashing.orchestrator import OrchestratorSummary
 from batch_stlink_flasher.services.settings import (
     load_settings,
@@ -31,6 +31,7 @@ from batch_stlink_flasher.ui.config_panel import ConfigPanel
 from batch_stlink_flasher.ui.device_table import DeviceTable
 from batch_stlink_flasher.ui.log_view import LogView
 from batch_stlink_flasher.ui.workers import DiscoveryWorker, FlashWorker
+from batch_stlink_flasher.util.log_export import SessionLog, export_log_json, export_log_text
 
 
 class MainWindow(QMainWindow):
@@ -45,6 +46,7 @@ class MainWindow(QMainWindow):
         self._succeeded = 0
         self._failed = 0
         self._cancelled = 0
+        self._session = SessionLog()
 
         self.device_table = DeviceTable()
         self.config_panel = ConfigPanel()
@@ -58,6 +60,7 @@ class MainWindow(QMainWindow):
         self.flash_btn = QPushButton("Flash")
         self.cancel_btn = QPushButton("Cancel")
         self.clear_log_btn = QPushButton("Clear log")
+        self.export_log_btn = QPushButton("Export log")
         self.cancel_btn.setEnabled(False)
 
         top_btns = QHBoxLayout()
@@ -65,6 +68,7 @@ class MainWindow(QMainWindow):
         top_btns.addWidget(self.select_all_btn)
         top_btns.addWidget(self.select_none_btn)
         top_btns.addStretch(1)
+        top_btns.addWidget(self.export_log_btn)
         top_btns.addWidget(self.clear_log_btn)
         top_btns.addWidget(self.cancel_btn)
         top_btns.addWidget(self.flash_btn)
@@ -114,6 +118,11 @@ class MainWindow(QMainWindow):
         cancel_action.triggered.connect(self.cancel_flash)
         file_menu.addAction(cancel_action)
 
+        export_action = QAction("Export log...", self)
+        export_action.setShortcut(QKeySequence("Ctrl+S"))
+        export_action.triggered.connect(self.export_log)
+        file_menu.addAction(export_action)
+
         file_menu.addSeparator()
         quit_action = QAction("Quit", self)
         quit_action.setShortcut(QKeySequence.StandardKey.Quit)
@@ -134,7 +143,8 @@ class MainWindow(QMainWindow):
         self.select_none_btn.clicked.connect(lambda: self.device_table.set_all_checked(False))
         self.flash_btn.clicked.connect(self.start_flash)
         self.cancel_btn.clicked.connect(self.cancel_flash)
-        self.clear_log_btn.clicked.connect(self.log_view.clear_log)
+        self.clear_log_btn.clicked.connect(self._clear_log)
+        self.export_log_btn.clicked.connect(self.export_log)
 
     def refresh_devices(self) -> None:
         if self._flash is not None and self._flash.isRunning():
@@ -178,6 +188,7 @@ class MainWindow(QMainWindow):
         assert config is not None
 
         self.log_view.append_line("--- flash start ---")
+        self._session.append("--- flash start ---")
         self.device_table.reset_statuses()
         for adapter in adapters:
             self.device_table.set_status_for_serial(adapter.serial, JobState.QUEUED.value)
@@ -194,6 +205,7 @@ class MainWindow(QMainWindow):
 
         worker = FlashWorker(adapters, config)
         worker.line_received.connect(self._on_flash_line)
+        worker.progress_updated.connect(self._on_progress)
         worker.job_finished.connect(self._on_job_finished)
         worker.run_finished.connect(self._on_run_finished)
         worker.failed.connect(self._on_flash_failed)
@@ -206,14 +218,21 @@ class MainWindow(QMainWindow):
             self._flash.cancel()
             self.statusBar().showMessage("Cancel requested...")
             self.log_view.append_line("--- cancel requested ---")
+            self._session.append("--- cancel requested ---")
 
     def _on_flash_line(self, serial: str, line: str) -> None:
         self.device_table.set_status_for_serial(serial, JobState.RUNNING.value)
-        self.log_view.append_device_line(serial, line)
+        prefixed = f"[{serial}] {line}"
+        self.log_view.append_line(prefixed)
+        self._session.append(prefixed)
+
+    def _on_progress(self, serial: str, label: str) -> None:
+        self.device_table.set_progress_for_serial(serial, label)
 
     def _on_job_finished(self, serial: str, state: str, error: str) -> None:
         note = error if error else state
         self.device_table.set_status_for_serial(serial, state, note)
+        self._session.add_result(serial, state, error)
         if state == JobState.SUCCEEDED.value:
             self._succeeded += 1
         elif state == JobState.CANCELLED.value:
@@ -225,10 +244,12 @@ class MainWindow(QMainWindow):
 
     def _on_run_finished(self, summary: object) -> None:
         assert isinstance(summary, OrchestratorSummary)
-        self.log_view.append_line(
+        done = (
             f"--- done: {summary.succeeded} ok / {summary.failed} failed / "
             f"{summary.cancelled} cancelled ---"
         )
+        self.log_view.append_line(done)
+        self._session.append(done)
         self.statusBar().showMessage(
             f"Finished: {summary.succeeded} succeeded, {summary.failed} failed, "
             f"{summary.cancelled} cancelled"
@@ -243,9 +264,38 @@ class MainWindow(QMainWindow):
 
     def _on_flash_failed(self, message: str) -> None:
         self.log_view.append_line(f"ERROR: {message}")
+        self._session.append(f"ERROR: {message}")
         QMessageBox.critical(self, "Flash error", message)
         self._set_idle_controls()
         self.statusBar().showMessage(f"Flash error: {message}")
+
+    def _clear_log(self) -> None:
+        self.log_view.clear_log()
+        self._session = SessionLog()
+
+    def export_log(self) -> None:
+        path_str, selected = QFileDialog.getSaveFileName(
+            self,
+            "Export session log",
+            "flash-session.log",
+            "Text (*.log *.txt);;JSON (*.json)",
+        )
+        if not path_str:
+            return
+        path = Path(path_str)
+        try:
+            if path.suffix.lower() == ".json" or "JSON" in selected:
+                if path.suffix.lower() != ".json":
+                    path = path.with_suffix(".json")
+                export_log_json(path, self._session)
+            else:
+                if path.suffix.lower() not in {".log", ".txt"}:
+                    path = path.with_suffix(".log")
+                export_log_text(path, self._session)
+        except OSError as exc:
+            QMessageBox.warning(self, "Export failed", str(exc))
+            return
+        self.statusBar().showMessage(f"Log exported to {path}")
 
     def _set_idle_controls(self) -> None:
         self.flash_btn.setEnabled(True)
@@ -348,9 +398,10 @@ class MainWindow(QMainWindow):
         QMessageBox.information(
             self,
             "Shortcuts",
-            "Ctrl+Return — Start flash\n"
-            "Esc — Cancel\n"
-            "F5 / Refresh — Rescan devices",
+            "Ctrl+Return - Start flash\n"
+            "Esc - Cancel\n"
+            "Ctrl+S - Export log\n"
+            "F5 / Refresh - Rescan devices",
         )
 
     def closeEvent(self, event: QCloseEvent) -> None:

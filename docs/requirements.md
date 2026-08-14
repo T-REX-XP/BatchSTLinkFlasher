@@ -135,6 +135,7 @@ Do **not** change stack without updating `docs/architecture.md` and this section
 | `docs/architecture.md` | Components, data flow, module layout |
 | `docs/plan.md` | Phased implementation checklist for agents/humans |
 | `docs/openocd-integration.md` | CLI recipes, ports, serial binding |
+| `docs/packaging.md` | Bootstrap, PyInstaller, CI |
 | `AGENTS.md` | How AI agents must work in this repo |
 | `CHANGELOG.md` | User-visible change history |
 | `README.md` | Install, run, operator quick start |

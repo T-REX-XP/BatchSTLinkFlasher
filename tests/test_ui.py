@@ -74,6 +74,8 @@ def test_device_table_selection(qapp: QApplication) -> None:
     assert len(table.selected_adapters()) == 2
     table.set_status_for_serial("A", "running")
     assert table.item(0, 5).text() == "running"
+    table.set_progress_for_serial("A", "programming (20%)")
+    assert table.item(0, 6).text() == "programming (20%)"
 
 
 def test_config_panel_roundtrip(qapp: QApplication) -> None:

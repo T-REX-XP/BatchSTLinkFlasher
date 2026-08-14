@@ -19,16 +19,17 @@ COL_SERIAL = 2
 COL_PID = 3
 COL_HLA = 4
 COL_STATUS = 5
-COL_NOTE = 6
+COL_PROGRESS = 6
+COL_NOTE = 7
 
 
 class DeviceTable(QTableWidget):
     """Checkbox table of discovered ST-Links."""
 
     def __init__(self, parent=None) -> None:
-        super().__init__(0, 7, parent)
+        super().__init__(0, 8, parent)
         self.setHorizontalHeaderLabels(
-            ["", "Product", "Serial", "PID", "HLA", "Status", "Note"]
+            ["", "Product", "Serial", "PID", "HLA", "Status", "Progress", "Note"]
         )
         self.verticalHeader().setVisible(False)
         self.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
@@ -41,6 +42,7 @@ class DeviceTable(QTableWidget):
         self.setColumnWidth(COL_PID, 70)
         self.setColumnWidth(COL_HLA, 160)
         self.setColumnWidth(COL_STATUS, 100)
+        self.setColumnWidth(COL_PROGRESS, 110)
         self._adapters: list[AdapterInfo] = []
 
     def set_adapters(self, adapters: list[AdapterInfo]) -> None:
@@ -57,7 +59,6 @@ class DeviceTable(QTableWidget):
                 | Qt.ItemFlag.ItemIsEnabled
                 | Qt.ItemFlag.ItemIsSelectable
             )
-            # Auto-check previously selected or all on first populate.
             checked = (
                 Qt.CheckState.Checked
                 if (not previous_selected or adapter.serial in previous_selected)
@@ -72,6 +73,7 @@ class DeviceTable(QTableWidget):
             hla = adapter.hla_serial or "(none)"
             self.setItem(row, COL_HLA, QTableWidgetItem(hla))
             self.setItem(row, COL_STATUS, QTableWidgetItem(JobState.IDLE.value))
+            self.setItem(row, COL_PROGRESS, QTableWidgetItem("-"))
             note = adapter.skip_reason or ("OK" if adapter.multi_adapter_ok else "single-only")
             self.setItem(row, COL_NOTE, QTableWidgetItem(note))
 
@@ -109,15 +111,37 @@ class DeviceTable(QTableWidget):
                     note_item = QTableWidgetItem()
                     self.setItem(row, COL_NOTE, note_item)
                 note_item.setText(note)
+            if state in {
+                JobState.SUCCEEDED.value,
+                JobState.FAILED.value,
+                JobState.CANCELLED.value,
+                JobState.IDLE.value,
+            }:
+                self.set_progress_for_serial(
+                    serial,
+                    "100%" if state == JobState.SUCCEEDED.value else "-",
+                )
+            return
+
+    def set_progress_for_serial(self, serial: str, label: str) -> None:
+        for row, adapter in enumerate(self._adapters):
+            if adapter.serial != serial:
+                continue
+            item = self.item(row, COL_PROGRESS)
+            if item is None:
+                item = QTableWidgetItem()
+                self.setItem(row, COL_PROGRESS, item)
+            item.setText(label)
             return
 
     def reset_statuses(self) -> None:
-        for row, adapter in enumerate(self._adapters):
+        for adapter in self._adapters:
             self.set_status_for_serial(
                 adapter.serial,
                 JobState.IDLE.value,
                 adapter.skip_reason or ("OK" if adapter.multi_adapter_ok else "single-only"),
             )
+            self.set_progress_for_serial(adapter.serial, "-")
 
 
 def _status_color(state: str) -> QColor:

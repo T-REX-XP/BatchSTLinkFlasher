@@ -9,18 +9,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
-- Phase 5: PySide6 desktop UI (device table, config, flash/cancel, live logs, summary)
-- Phase 5: QSettings persistence for OpenOCD/firmware/target paths
-- Phase 4: `FlashOrchestrator` for parallel multi-adapter flashing (isolated failures)
-- Phase 4: CLI `--all` / `--adapters` for batch flash
-- Phase 3: `FlashJob` with streamed OpenOCD logs, timeout, and cancel
-- Phase 3: CLI `python -m batch_stlink_flasher.flash` (supports `--dry-run`)
-- OpenOCD command builder omits `hla_serial` when adapter has no usable serial (clone `%`)
-- Phase 2: ST-Link discovery via `st-info --probe` with Windows PnP + pyusb fallbacks
-- Phase 2: HLA serial normalization (`util/hla_serial.py`) for OpenOCD
-- Phase 2: CLI `python -m batch_stlink_flasher.discover`
-- Windows PnP discovery works with the official ST driver (fixes pyusb “No backend available”)
-- Detect clone ST-Links with placeholder USB serial (`%`) and flag `multi_adapter_ok=false`
-- Phase 1: models, OpenOCD argv builder, port allocation
-- Unit tests including offscreen UI smoke tests
-- Docs under `docs/`, `AGENTS.md`, package skeleton
+### Changed
+
+### Fixed
+
+## [0.1.0] - 2026-08-14
+
+### Added
+
+- Desktop UI (PySide6): device table, config, flash/cancel, live logs, summary bar
+- Session log export (text / JSON) from the UI
+- Coarse OpenOCD progress parsing shown in the device table
+- Parallel flash orchestrator with isolated per-device failures
+- Headless CLIs: `discover`, `flash` (`--all` / `--adapters` / `--dry-run`)
+- Device discovery via `st-info`, Windows PnP (official ST driver), and pyusb fallback
+- HLA serial normalization for OpenOCD multi-adapter binding
+- Clone ST-Link placeholder serial (`%`) detection (`multi_adapter_ok=false`)
+- Settings persistence (OpenOCD/firmware/target paths)
+- Bootstrap installer `scripts/bootstrap.ps1` and Windows PyInstaller build `scripts/build_windows.ps1`
+- GitHub Actions CI with pytest coverage gate (85%)
+- Docs: requirements, architecture, plan, OpenOCD integration, packaging

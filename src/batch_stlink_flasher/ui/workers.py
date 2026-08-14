@@ -28,6 +28,7 @@ class FlashWorker(QThread):
     """Run FlashOrchestrator off the UI thread."""
 
     line_received = Signal(str, str)  # serial, line
+    progress_updated = Signal(str, str)  # serial, progress label
     job_finished = Signal(str, str, str)  # serial, state value, error summary
     run_finished = Signal(object)  # OrchestratorSummary
     failed = Signal(str)
@@ -45,8 +46,13 @@ class FlashWorker(QThread):
 
     def run(self) -> None:
         try:
+            from batch_stlink_flasher.util.progress import parse_openocd_progress
+
             def on_line(adapter: AdapterInfo, line: str) -> None:
                 self.line_received.emit(adapter.serial, line)
+                update = parse_openocd_progress(line)
+                if update is not None:
+                    self.progress_updated.emit(adapter.serial, update.label)
 
             def on_done(adapter: AdapterInfo, result: FlashJobResult) -> None:
                 self.job_finished.emit(

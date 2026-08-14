@@ -1,7 +1,7 @@
-"""Placeholder tests — expand from Phase 1 onward."""
+"""Package smoke tests."""
 
 from batch_stlink_flasher import __version__
 
 
 def test_package_version_is_set() -> None:
-    assert __version__
+    assert __version__ == "0.1.0"

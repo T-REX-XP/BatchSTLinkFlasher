@@ -12,8 +12,6 @@ Use this checklist in order. Check items off in PRs / commits. Update `CHANGELOG
 
 ## Phase 1 — Models & OpenOCD CLI builder
 
-**Owner: implementer (you / agent)**
-
 - [x] Implement `flashing/models.py` (`AdapterInfo`, `FlashConfig`, `JobState`, `OpenOcdPorts`)
 - [x] Implement `flashing/openocd.py`: build argv list from config + serial + ports
 - [x] Implement `util/ports.py`: allocate N free localhost ports
@@ -64,10 +62,14 @@ Use this checklist in order. Check items off in PRs / commits. Update `CHANGELOG
 
 ## Phase 6 — Polish
 
-- [ ] Log export
-- [ ] Better progress parsing (if OpenOCD output allows)
-- [ ] Packaging notes / PyInstaller recipe in README
-- [ ] Tag version `0.1.0` in `CHANGELOG.md`
+- [x] Log export (text / JSON)
+- [x] Better progress parsing (OpenOCD stage / % heuristics)
+- [x] Packaging notes / PyInstaller recipe (`docs/packaging.md`, `scripts/build_windows.ps1`)
+- [x] Tag version `0.1.0` in `CHANGELOG.md` / package metadata
+- [x] Build scripts to prepare dist
+- [x] GitHub Actions CI pipeline
+- [x] Test coverage gate minimum 85%
+- [x] Autoinstaller / bootstrap script for dependencies + docs pointers
 
 ## Suggested commit style
 
@@ -79,8 +81,9 @@ Use this checklist in order. Check items off in PRs / commits. Update `CHANGELOG
 Keep commits small and aligned to one phase item when possible.
 
 
-
-implement build scripts to prepare dist
-implement github pipelines
-test coverage must be minimum 85%
-Implement autoinstaller script for the dependencies and documentation
+## Phase 7 — new features
+- [ ] implement build scripts to prepare dist
+- [ ] implement github pipelines
+- [ ] test coverage must be minimum 85%
+- [ ] Implement autoinstaller script for the dependencies and documentation
+- [ ] Better ui, Icons for buttons, etc...

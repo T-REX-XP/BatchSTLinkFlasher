@@ -34,6 +34,8 @@ pytest
 python -m batch_stlink_flasher
 ```
 
+Coverage must stay ≥ **85%** (`--cov-fail-under=85`). Bootstrap: `scripts/bootstrap.ps1`.
+
 ## When stuck
 
 Document the blocker in the PR/commit message and in **Unreleased** notes if it changes operator expectations. Prefer fixing discovery/serial encoding with a real probe before guessing UI workarounds.
