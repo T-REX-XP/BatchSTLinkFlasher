@@ -39,8 +39,8 @@ STLINK_PIDS: frozenset[int] = frozenset(
 
 _MISSING_SERIAL_REASON = (
     "USB serial missing or placeholder (clone ST-Links often report '%'). "
-    "Device is visible; OpenOCD multi-adapter binding is unavailable - "
-    "usable when only one ST-Link is plugged in."
+    "Device is visible; OpenOCD cannot bind this probe by serial — "
+    "flash only with this one ST-Link plugged in (or one selected and others unplugged)."
 )
 
 

@@ -2,11 +2,26 @@
 
 from __future__ import annotations
 
+import os
 import sys
+
+
+def _prepare_qt_environment() -> None:
+    """
+    Frozen builds must never inherit ``QT_QPA_PLATFORM=offscreen`` from a
+    developer shell (pytest / CI). That makes the EXE look like it \"won't run\"
+    — process alive, no visible window.
+    """
+    if not getattr(sys, "frozen", False):
+        return
+    if os.environ.get("QT_QPA_PLATFORM", "").strip().lower() == "offscreen":
+        os.environ.pop("QT_QPA_PLATFORM", None)
 
 
 def run(argv: list[str] | None = None) -> int:
     """Start the Qt desktop application."""
+    _prepare_qt_environment()
+
     # Before any HWND: otherwise taskbar/Alt+Tab keep the python.exe icon.
     from batch_stlink_flasher.util.win_shell import set_app_user_model_id
 
@@ -44,6 +59,9 @@ def run(argv: list[str] | None = None) -> int:
 
     state: dict[str, object] = {"window": None, "splash": None}
 
+    # Avoid quitting when splash closes before the main window is shown.
+    app.setQuitOnLastWindowClosed(False)
+
     splash = SplashScreen()
     state["splash"] = splash
     splash.center_on_screen()
@@ -52,19 +70,18 @@ def run(argv: list[str] | None = None) -> int:
     app.processEvents()
 
     def _open_main(adapters: list, error: str) -> None:
-        # Close splash first so the main window never appears underneath it.
-        splash.hide()
-        splash.close()
-        app.processEvents()
-
         window = MainWindow(initial_adapters=adapters, initial_scan_error=error or None)
         state["window"] = window
-        # Defer show one tick so splash teardown paints first.
+
         def _show_main() -> None:
             window.show()
             window.raise_()
             window.activateWindow()
+            splash.hide()
+            splash.close()
+            app.setQuitOnLastWindowClosed(True)
 
+        # Show main first, then tear down splash (no quit-on-last-window race).
         QTimer.singleShot(0, _show_main)
 
     splash.scan_finished.connect(_open_main)

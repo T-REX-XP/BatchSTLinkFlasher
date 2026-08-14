@@ -117,7 +117,8 @@ def test_enumerate_stlink_registry(monkeypatch) -> None:
     assert rows[0]["Manufacturer"] == "STMicroelectronics"
 
 
-def test_list_stlink_skips_composite_instance_ids(monkeypatch) -> None:
+def test_list_stlink_keeps_windows_instance_ids_for_duplicate_clones(monkeypatch) -> None:
+    """Two clones with serial '%' — Windows keeps one as '%' and one as 5&…&0&6."""
     from batch_stlink_flasher.services import windows_pnp
 
     monkeypatch.setattr(windows_pnp.sys, "platform", "win32")
@@ -126,20 +127,22 @@ def test_list_stlink_skips_composite_instance_ids(monkeypatch) -> None:
         "_enumerate_stlink_registry",
         lambda: [
             {
-                "Name": "ST-Link",
+                "Name": "STM32 STLink",
                 "Manufacturer": "ST",
                 "DeviceID": r"USB\VID_0483&PID_3748\%",
             },
             {
-                "Name": "Composite",
+                "Name": "STM32 STLink",
                 "Manufacturer": "ST",
                 "DeviceID": r"USB\VID_0483&PID_3748\5&28bd6581&0&6",
             },
         ],
     )
     devices = windows_pnp.list_stlink_pnp_devices()
-    assert len(devices) == 1
-    assert devices[0].usb_serial == "%"
+    assert len(devices) == 2
+    serials = {d.usb_serial for d in devices}
+    assert serials == {"%", "5&28bd6581&0&6"}
+    assert is_usable_usb_serial("5&28bd6581&0&6") is False
 
 
 def test_hidden_subprocess_kwargs_has_startupinfo(monkeypatch) -> None:

@@ -17,8 +17,8 @@ _INSTANCE_RE = re.compile(
     r"^USB\\VID_([0-9A-Fa-f]{4})&PID_([0-9A-Fa-f]{4})\\(.+)$",
     re.IGNORECASE,
 )
-# Windows-generated composite/hub instance suffixes — not OpenOCD HLA serials.
-_COMPOSITE_SERIAL_RE = re.compile(r"^\d+&[0-9A-Fa-f]+&\d+&\d+$", re.IGNORECASE)
+# Windows-generated instance ids when USB serial is missing/duplicated (still real probes).
+_WINDOWS_INSTANCE_SERIAL_RE = re.compile(r"^\d+&[0-9A-Fa-f]+&\d+&\d+$", re.IGNORECASE)
 
 _UNUSABLE_SERIALS = frozenset({"", "%", "000000000000", "0"})
 _USB_ENUM_ROOT = r"SYSTEM\CurrentControlSet\Enum\USB"
@@ -45,6 +45,10 @@ def list_stlink_pnp_devices() -> list[WindowsUsbDevice]:
 
     Works with the official STMicroelectronics WinUSB/ST driver (no libusb backend).
     Does **not** spawn PowerShell / console processes (avoids black console flash).
+
+    When several clone ST-Links share a placeholder USB serial (often ``%``), Windows
+    keeps one instance as ``…\\%`` and assigns the others generated ids such as
+    ``5&28bd6581&0&6``. Those are still distinct probes and must be listed.
     """
     if sys.platform != "win32":
         return []
@@ -56,20 +60,18 @@ def list_stlink_pnp_devices() -> list[WindowsUsbDevice]:
         return []
 
     devices: list[WindowsUsbDevice] = []
-    seen_serials: set[str] = set()
+    seen_instances: set[str] = set()
     for row in rows:
         instance_id = str(row.get("DeviceID") or "")
         parsed = parse_usb_instance_id(instance_id)
         if parsed is None:
             continue
         vid, pid, serial = parsed
-        if _COMPOSITE_SERIAL_RE.match(serial):
-            # Skip hub/composite interface instance IDs (not usable as HLA serial).
+        # Deduplicate by full instance id (not serial): clones often share "%".
+        key = instance_id.upper()
+        if key in seen_instances:
             continue
-        key = serial.upper()
-        if key in seen_serials:
-            continue
-        seen_serials.add(key)
+        seen_instances.add(key)
         devices.append(
             WindowsUsbDevice(
                 name=str(row.get("Name") or "ST-Link"),
@@ -98,6 +100,9 @@ def is_usable_usb_serial(serial: str) -> bool:
     """False for empty / placeholder serials common on clone ST-Link V2 sticks."""
     text = (serial or "").strip()
     if text in _UNUSABLE_SERIALS:
+        return False
+    # Windows-generated instance ids are not OpenOCD HLA serials.
+    if _WINDOWS_INSTANCE_SERIAL_RE.match(text):
         return False
     # Single punctuation / wildcard placeholders
     if len(text) <= 1:
