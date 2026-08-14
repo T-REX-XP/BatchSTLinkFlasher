@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- Identify LED: blink ST-Link COM LED via USB re-enumeration to map table rows to physical dongles
 - Device table shows USB port / hub (from Windows ``LocationInformation``)
 - Dual flash strategy: HLA originals flash in parallel; clones flash sequentially with Windows USB isolation
 - Dark / light appearance with View → Theme (default: follow system)

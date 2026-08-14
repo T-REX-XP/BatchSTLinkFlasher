@@ -40,7 +40,7 @@ from batch_stlink_flasher.ui.theme import (
     load_app_icon,
     normalize_theme_mode,
 )
-from batch_stlink_flasher.ui.workers import DiscoveryWorker, FlashWorker
+from batch_stlink_flasher.ui.workers import DiscoveryWorker, FlashWorker, IdentifyWorker
 from batch_stlink_flasher.util.log_export import SessionLog, export_log_json, export_log_text
 
 
@@ -61,6 +61,7 @@ class MainWindow(QMainWindow):
 
         self._discovery: DiscoveryWorker | None = None
         self._flash: FlashWorker | None = None
+        self._identify: IdentifyWorker | None = None
         self._running_count = 0
         self._succeeded = 0
         self._failed = 0
@@ -77,6 +78,7 @@ class MainWindow(QMainWindow):
         self.refresh_btn = QPushButton("Refresh devices")
         self.select_all_btn = QPushButton("Select all")
         self.select_none_btn = QPushButton("Select none")
+        self.identify_btn = QPushButton("Identify LED")
         self.flash_btn = QPushButton("Flash")
         self.cancel_btn = QPushButton("Cancel")
         self.clear_log_btn = QPushButton("Clear log")
@@ -86,6 +88,7 @@ class MainWindow(QMainWindow):
         decorate_button(self.refresh_btn, standard=QStyle.StandardPixmap.SP_BrowserReload)
         decorate_button(self.select_all_btn, standard=QStyle.StandardPixmap.SP_DialogYesButton)
         decorate_button(self.select_none_btn, standard=QStyle.StandardPixmap.SP_DialogNoButton)
+        decorate_button(self.identify_btn, standard=QStyle.StandardPixmap.SP_MessageBoxInformation)
         decorate_button(
             self.flash_btn,
             standard=QStyle.StandardPixmap.SP_DialogApplyButton,
@@ -104,6 +107,7 @@ class MainWindow(QMainWindow):
         top_btns.addWidget(self.refresh_btn)
         top_btns.addWidget(self.select_all_btn)
         top_btns.addWidget(self.select_none_btn)
+        top_btns.addWidget(self.identify_btn)
         top_btns.addStretch(1)
         top_btns.addWidget(self.export_log_btn)
         top_btns.addWidget(self.clear_log_btn)
@@ -248,6 +252,7 @@ class MainWindow(QMainWindow):
         self.refresh_btn.clicked.connect(self.refresh_devices)
         self.select_all_btn.clicked.connect(lambda: self.device_table.set_all_checked(True))
         self.select_none_btn.clicked.connect(lambda: self.device_table.set_all_checked(False))
+        self.identify_btn.clicked.connect(self.identify_selected)
         self.flash_btn.clicked.connect(self.start_flash)
         self.cancel_btn.clicked.connect(self.cancel_flash)
         self.clear_log_btn.clicked.connect(self._clear_log)
@@ -256,6 +261,9 @@ class MainWindow(QMainWindow):
     def refresh_devices(self) -> None:
         if self._flash is not None and self._flash.isRunning():
             self.statusBar().showMessage("Cannot refresh while flashing")
+            return
+        if self._identify is not None and self._identify.isRunning():
+            self.statusBar().showMessage("Cannot refresh while identifying")
             return
         if self._discovery is not None and self._discovery.isRunning():
             return
@@ -278,9 +286,78 @@ class MainWindow(QMainWindow):
         self.statusBar().showMessage(f"Discovery failed: {message}")
         QMessageBox.warning(self, "Discovery failed", message)
 
+    def identify_selected(self) -> None:
+        """Blink the COM LED on exactly one checked adapter."""
+        if self._flash is not None and self._flash.isRunning():
+            QMessageBox.information(self, "Busy", "Wait for the flash run to finish.")
+            return
+        if self._identify is not None and self._identify.isRunning():
+            return
+
+        selected = self.device_table.selected_adapters()
+        if len(selected) != 1:
+            QMessageBox.information(
+                self,
+                "Identify LED",
+                "Check exactly one adapter, then click Identify LED.\n\n"
+                "Watch the programmer COM LED — it blinks during USB re-enumeration.",
+            )
+            return
+        adapter = selected[0]
+        if not (adapter.usb_path or "").strip():
+            QMessageBox.warning(
+                self,
+                "Identify LED",
+                "This adapter has no USB instance path. Refresh devices and try again.",
+            )
+            return
+
+        port = (
+            f"port {adapter.usb_port}"
+            if adapter.usb_port is not None
+            else adapter.serial
+        )
+        self.log_view.append_line(f"--- identify LED: {adapter.serial} ({port}) ---")
+        self._session.append(f"--- identify LED: {adapter.serial} ({port}) ---")
+        self.statusBar().showMessage(f"Blinking LED on {port}… watch the programmer")
+        self.identify_btn.setEnabled(False)
+        self.refresh_btn.setEnabled(False)
+        self.flash_btn.setEnabled(False)
+
+        worker = IdentifyWorker(adapter)
+        worker.finished_ok.connect(self._on_identify_ok)
+        worker.failed.connect(self._on_identify_failed)
+        worker.finished.connect(self._on_identify_finished)
+        self._identify = worker
+        worker.start()
+
+    def _on_identify_ok(self, serial: str) -> None:
+        self.statusBar().showMessage(f"Identify done for {serial}")
+        self.log_view.append_line(f"--- identify done: {serial} ---")
+
+    def _on_identify_failed(self, message: str) -> None:
+        self.statusBar().showMessage(f"Identify failed: {message}")
+        self.log_view.append_line(f"--- identify failed: {message} ---")
+        QMessageBox.warning(
+            self,
+            "Identify LED failed",
+            f"{message}\n\n"
+            "Tip: run the app as Administrator if Windows blocks device disable, "
+            "or use USB port numbers in the table to map adapters.",
+        )
+
+    def _on_identify_finished(self) -> None:
+        self.identify_btn.setEnabled(True)
+        self.refresh_btn.setEnabled(True)
+        if self._flash is None or not self._flash.isRunning():
+            self.flash_btn.setEnabled(True)
+
     def start_flash(self) -> None:
         if self._flash is not None and self._flash.isRunning():
             QMessageBox.information(self, "Busy", "A flash run is already in progress.")
+            return
+        if self._identify is not None and self._identify.isRunning():
+            QMessageBox.information(self, "Busy", "Wait for Identify LED to finish.")
             return
 
         settings = self.config_panel.to_settings()
@@ -520,6 +597,7 @@ class MainWindow(QMainWindow):
             "Esc - Cancel\n"
             "Ctrl+S - Export log\n"
             "F5 / Refresh - Rescan devices\n"
+            "Identify LED - blink COM LED on the checked adapter\n"
             "View → Theme - System / Light / Dark",
         )
 

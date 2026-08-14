@@ -24,6 +24,27 @@ class DiscoveryWorker(QThread):
             self.failed.emit(str(exc))
 
 
+class IdentifyWorker(QThread):
+    """Blink one adapter's COM LED off the UI thread."""
+
+    finished_ok = Signal(str)  # serial
+    failed = Signal(str)
+
+    def __init__(self, adapter: AdapterInfo, *, pulses: int = 4) -> None:
+        super().__init__()
+        self._adapter = adapter
+        self._pulses = pulses
+
+    def run(self) -> None:
+        try:
+            from batch_stlink_flasher.services.identify import blink_adapter_led
+
+            blink_adapter_led(self._adapter, pulses=self._pulses)
+            self.finished_ok.emit(self._adapter.serial)
+        except Exception as exc:  # noqa: BLE001
+            self.failed.emit(str(exc))
+
+
 class FlashWorker(QThread):
     """Run FlashOrchestrator off the UI thread."""
 

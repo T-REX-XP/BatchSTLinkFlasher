@@ -238,3 +238,100 @@ def test_export_log_text_only(window: MainWindow, tmp_path: Path, monkeypatch: p
     window._session.append("line")  # noqa: SLF001
     window.export_log()
     assert out.exists()
+
+
+def test_identify_requires_exactly_one(
+    window: MainWindow, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from unittest.mock import MagicMock
+
+    box = MagicMock()
+    monkeypatch.setattr(
+        "batch_stlink_flasher.ui.main_window.QMessageBox.information",
+        box,
+    )
+    window.device_table.set_adapters(
+        [
+            AdapterInfo(
+                serial="A",
+                hla_serial="A",
+                vid=0x0483,
+                pid=0x3748,
+                usb_path=r"USB\VID_0483&PID_3748\A",
+                usb_port=1,
+                multi_adapter_ok=True,
+            )
+        ]
+    )
+    window.device_table.set_all_checked(False)
+    window.identify_selected()
+    assert box.called
+
+
+def test_identify_requires_usb_path(window: MainWindow, monkeypatch: pytest.MonkeyPatch) -> None:
+    from unittest.mock import MagicMock
+
+    warn = MagicMock()
+    monkeypatch.setattr(
+        "batch_stlink_flasher.ui.main_window.QMessageBox.warning",
+        warn,
+    )
+    window.device_table.set_adapters(
+        [
+            AdapterInfo(
+                serial="A",
+                hla_serial="A",
+                vid=0x0483,
+                pid=0x3748,
+                usb_path=None,
+                multi_adapter_ok=True,
+            )
+        ]
+    )
+    window.device_table.set_all_checked(True)
+    window.identify_selected()
+    assert warn.called
+
+
+def test_identify_starts_worker(window: MainWindow, monkeypatch: pytest.MonkeyPatch) -> None:
+    from unittest.mock import MagicMock
+
+    class _IdWorker:
+        def __init__(self, *a, **k):
+            self.finished_ok = MagicMock()
+            self.failed = MagicMock()
+            self.finished = MagicMock()
+            self._running = True
+
+        def start(self):
+            return None
+
+        def isRunning(self):
+            return self._running
+
+    monkeypatch.setattr("batch_stlink_flasher.ui.main_window.IdentifyWorker", _IdWorker)
+    monkeypatch.setattr(
+        "batch_stlink_flasher.ui.main_window.QMessageBox.warning",
+        MagicMock(),
+    )
+    window.device_table.set_adapters(
+        [
+            AdapterInfo(
+                serial="A",
+                hla_serial="A",
+                vid=0x0483,
+                pid=0x3748,
+                usb_path=r"USB\VID_0483&PID_3748\A",
+                usb_port=2,
+                multi_adapter_ok=True,
+            )
+        ]
+    )
+    window.device_table.set_all_checked(True)
+    window.identify_selected()
+    assert window._identify is not None  # noqa: SLF001
+    assert not window.identify_btn.isEnabled()
+    window._on_identify_ok("A")  # noqa: SLF001
+    window._on_identify_failed("nope")  # noqa: SLF001
+    window._on_identify_finished()  # noqa: SLF001
+    assert window.identify_btn.isEnabled()

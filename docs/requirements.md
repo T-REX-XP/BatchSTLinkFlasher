@@ -43,6 +43,7 @@ Desktop application that flashes **the same firmware file** onto **1–N STM32 (
 | FR-DISC-04 | Refresh discovery on demand (button) | Must |
 | FR-DISC-05 | Optional auto-refresh while idle (interval configurable; default off or ≥2s) | Should |
 | FR-DISC-06 | Mark devices that cannot be selected (missing serial, in use, unsupported) with a clear reason | Should |
+| FR-DISC-07 | Identify a selected programmer by blinking its COM LED (USB re-enumeration) | Should |
 
 ### 4.2 Firmware & flash configuration
 

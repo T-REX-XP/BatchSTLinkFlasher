@@ -28,6 +28,13 @@ adapters.
 **Recommendation for factory lines:** prefer ST-Links with unique serials so
 all selected probes flash in true parallel without device disable.
 
+### Identify LED (COM activity)
+
+ST-Link has no OpenOCD ``blink led`` command. The COM LED blinks during USB
+re-enumeration, so **Identify LED** briefly disables/re-enables that probe’s
+PnP node (same Config Manager APIs as clone isolation). Check exactly one
+adapter, then click **Identify LED** and watch the dongle.
+
 ### Ports
 
 Unique TCP ports per OpenOCD process (ephemeral allocation preferred). Example
