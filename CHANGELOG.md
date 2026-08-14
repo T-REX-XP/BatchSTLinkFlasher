@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- Settings dialog (Edit → Settings / toolbar): OpenOCD path, interface, scripts ``-s``, timeout, theme
 - Docs: ``docs/stlink-clone-serial.md`` — ST-Link V2 clone USB serial conflicts, recovery approaches, and community repos (from ``docs/stlink.pdf`` notes)
 - Device table shows USB port / hub (from Windows ``LocationInformation``)
 - Dual flash strategy: HLA originals flash in parallel; clones flash sequentially with Windows USB isolation
@@ -25,6 +26,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- Browse dialogs use shared file masks (firmware ``*.elf/hex/bin``, OpenOCD ``openocd.exe``, configs ``*.cfg``, log export)
+- Browse buttons: Windows-style ``…`` ellipsis controls (no folder icons / custom glyphs)
+- Dark theme: Settings / dialogs no longer show white panes with light-on-light labels (Fusion QPalette + tab/combo styles)
 - List both ST-Link clones when Windows assigns a generated instance id (``5&…``) because they share serial ``%``
 - Splash→main handoff: show main before closing splash; avoid quit-on-last-window-closed race
 - Frozen EXE ignored visible UI when ``QT_QPA_PLATFORM=offscreen`` was inherited from a test shell
@@ -41,8 +45,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - Documentation synced with current product (README, requirements, architecture, plan, packaging, scripts)
 - App logo: Windows 11 Fluent chip mark with transparent corners (shared by EXE, About, Setup.exe)
 - Compact laptop-friendly UI: 3-pane resizable splitter (devices / config / log), wrapping toolbar,
-  interactive device columns (hide PID/HLA when narrow), collapsible Advanced settings,
+  interactive device columns (hide PID/HLA when narrow), Settings dialog for tool prefs,
   persisted window/splitter/column layout (View → Reset layout)
+- Main config panel keeps firmware / target / BIN base; OpenOCD path, interface, scripts, timeout, and theme moved to Settings
 - Removed deprecated script aliases (``bootstrap``, ``build_windows``, ``build_full_installer``)
 - Packaging: OpenOCD bundled by ``build_installer.ps1``; ``Setup.exe`` skipped gracefully if Inno Setup is not installed
 

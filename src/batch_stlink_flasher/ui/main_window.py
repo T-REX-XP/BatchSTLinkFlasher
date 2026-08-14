@@ -8,6 +8,7 @@ from PySide6.QtCore import QByteArray, QSettings, Qt
 from PySide6.QtGui import QAction, QActionGroup, QCloseEvent, QKeySequence
 from PySide6.QtWidgets import (
     QApplication,
+    QDialog,
     QFileDialog,
     QFrame,
     QLabel,
@@ -37,6 +38,8 @@ from batch_stlink_flasher.ui.config_panel import ConfigPanel
 from batch_stlink_flasher.ui.device_table import DeviceTable
 from batch_stlink_flasher.ui.flow_layout import FlowLayout
 from batch_stlink_flasher.ui.log_view import LogView
+from batch_stlink_flasher.ui.file_filters import LOG_EXPORT_FILTER
+from batch_stlink_flasher.ui.settings_dialog import SettingsDialog
 from batch_stlink_flasher.ui.theme import (
     ThemeMode,
     apply_app_theme,
@@ -79,6 +82,8 @@ class MainWindow(QMainWindow):
         self.log_view.setMinimumHeight(96)
         self.summary_label = QLabel("Idle")
         self.summary_label.setObjectName("summaryLabel")
+        self._settings = load_settings()
+        self._theme_mode = normalize_theme_mode(self._settings.theme_mode)
 
         self.refresh_btn = QPushButton("Refresh")
         self.refresh_btn.setToolTip("Refresh devices (F5)")
@@ -88,6 +93,8 @@ class MainWindow(QMainWindow):
         self.select_none_btn.setToolTip("Select none")
         self.identify_btn = QPushButton("Identify")
         self.identify_btn.setToolTip("Blink COM LED on the checked adapter")
+        self.settings_btn = QPushButton("Settings")
+        self.settings_btn.setToolTip("OpenOCD path, interface, timeout, theme…")
         self.flash_btn = QPushButton("Flash")
         self.cancel_btn = QPushButton("Cancel")
         self.clear_log_btn = QPushButton("Clear log")
@@ -99,6 +106,7 @@ class MainWindow(QMainWindow):
         decorate_button(self.select_all_btn, standard=QStyle.StandardPixmap.SP_DialogYesButton)
         decorate_button(self.select_none_btn, standard=QStyle.StandardPixmap.SP_DialogNoButton)
         decorate_button(self.identify_btn, standard=QStyle.StandardPixmap.SP_MessageBoxInformation)
+        decorate_button(self.settings_btn, standard=QStyle.StandardPixmap.SP_FileDialogDetailedView)
         decorate_button(
             self.flash_btn,
             standard=QStyle.StandardPixmap.SP_DialogApplyButton,
@@ -127,6 +135,7 @@ class MainWindow(QMainWindow):
         sep.setFrameShadow(QFrame.Shadow.Sunken)
         sep.setFixedWidth(8)
         top_btns.addWidget(sep)
+        top_btns.addWidget(self.settings_btn)
         top_btns.addWidget(self.export_log_btn)
         top_btns.addWidget(self.clear_log_btn)
         top_btns.addWidget(self.cancel_btn)
@@ -139,11 +148,16 @@ class MainWindow(QMainWindow):
         devices_layout.addWidget(toolbar)
         devices_layout.addWidget(self.device_table, stretch=1)
 
+        self.tools_summary = QLabel()
+        self.tools_summary.setObjectName("toolsSummary")
+        self.tools_summary.setWordWrap(True)
+
         config_pane = QWidget()
         config_layout = QVBoxLayout(config_pane)
         config_layout.setContentsMargins(8, 4, 8, 4)
         config_layout.setSpacing(4)
         config_layout.addWidget(self.config_panel)
+        config_layout.addWidget(self.tools_summary)
 
         log_pane = QWidget()
         log_layout = QVBoxLayout(log_pane)
@@ -176,10 +190,9 @@ class MainWindow(QMainWindow):
         self._build_menu()
         self._connect_signals()
 
-        initial_settings = load_settings()
-        self.config_panel.apply_settings(initial_settings)
-        self._theme_mode = normalize_theme_mode(initial_settings.theme_mode)
+        self.config_panel.apply_settings(self._settings)
         self._sync_theme_actions()
+        self._update_tools_summary()
         self._restore_ui_state()
         app = QApplication.instance()
         if app is not None:
@@ -203,6 +216,10 @@ class MainWindow(QMainWindow):
             self._on_discovery_failed(initial_scan_error)
         elif auto_refresh:
             self.refresh_devices()
+
+    def _current_settings(self):
+        """Merged tool settings + job fields from the config panel."""
+        return self.config_panel.merge_into(self._settings)
 
     def _build_menu(self) -> None:
         file_menu = self.menuBar().addMenu("&File")
@@ -231,6 +248,12 @@ class MainWindow(QMainWindow):
         quit_action.setShortcut(QKeySequence.StandardKey.Quit)
         quit_action.triggered.connect(self.close)
         file_menu.addAction(quit_action)
+
+        edit_menu = self.menuBar().addMenu("&Edit")
+        settings_action = QAction("Settings...", self)
+        settings_action.setShortcut(QKeySequence("Ctrl+,"))
+        settings_action.triggered.connect(self.open_settings)
+        edit_menu.addAction(settings_action)
 
         view_menu = self.menuBar().addMenu("&View")
         reset_layout = QAction("Reset layout", self)
@@ -262,18 +285,41 @@ class MainWindow(QMainWindow):
         shortcuts.triggered.connect(self._shortcuts)
         help_menu.addAction(shortcuts)
 
+    def open_settings(self) -> None:
+        """Edit OpenOCD path, interface, scripts, timeout, and theme."""
+        current = self._current_settings()
+        dialog = SettingsDialog(current, self)
+        if dialog.exec() != QDialog.DialogCode.Accepted:
+            return
+        updated = dialog.to_settings(current)
+        self._settings = updated
+        self.config_panel.apply_settings(updated)
+        save_settings(updated)
+        self.set_theme_mode(updated.theme_mode)
+        self._update_tools_summary()
+        self.statusBar().showMessage("Settings saved")
+
+    def _update_tools_summary(self) -> None:
+        openocd = self._settings.openocd_path or "openocd"
+        iface = self._settings.interface_cfg or "(no interface)"
+        timeout = self._settings.job_timeout_sec
+        scripts = self._settings.scripts_search_path.strip()
+        scripts_bit = f" · scripts: {scripts}" if scripts else ""
+        self.tools_summary.setText(
+            f"OpenOCD: {openocd} · {iface} · timeout {timeout:g}s{scripts_bit}  "
+            f"(Edit → Settings)"
+        )
+
     def set_theme_mode(self, mode: ThemeMode | str) -> None:
         """Apply and persist appearance preference."""
         resolved = normalize_theme_mode(mode)
         self._theme_mode = resolved
-        self.config_panel._theme_mode = resolved.value  # noqa: SLF001
+        self._settings.theme_mode = resolved.value
         app = QApplication.instance()
         if isinstance(app, QApplication):
             apply_app_theme(app, resolved)
         self._sync_theme_actions()
-        settings = self.config_panel.to_settings()
-        settings.theme_mode = resolved.value
-        save_settings(settings)
+        save_settings(self._current_settings())
 
     def _sync_theme_actions(self) -> None:
         action = self._theme_actions.get(self._theme_mode)
@@ -306,8 +352,6 @@ class MainWindow(QMainWindow):
                 self.device_table.apply_column_widths([int(w) for w in widths])
             except (TypeError, ValueError):
                 pass
-        advanced = q.value("ui/configAdvanced", False)
-        self.config_panel.set_advanced_expanded(str(advanced).lower() in {"1", "true", "yes"})
 
     def _save_ui_state(self) -> None:
         q = self._ui_settings()
@@ -315,13 +359,11 @@ class MainWindow(QMainWindow):
         q.setValue("ui/windowState", self.saveState())
         q.setValue("ui/mainSplitter", self.main_splitter.saveState())
         q.setValue("ui/deviceColumnWidths", self.device_table.column_widths())
-        q.setValue("ui/configAdvanced", self.config_panel.advanced_expanded())
         q.sync()
 
     def _reset_layout(self) -> None:
         self.resize(960, 640)
-        self.main_splitter.setSizes([280, 150, 200])
-        self.config_panel.set_advanced_expanded(False)
+        self.main_splitter.setSizes([280, 120, 200])
         self.device_table._last_width_bucket = None  # noqa: SLF001
         self.device_table.apply_width_layout(self.device_table.viewport().width())
         self.statusBar().showMessage("Layout reset")
@@ -331,6 +373,7 @@ class MainWindow(QMainWindow):
         self.select_all_btn.clicked.connect(lambda: self.device_table.set_all_checked(True))
         self.select_none_btn.clicked.connect(lambda: self.device_table.set_all_checked(False))
         self.identify_btn.clicked.connect(self.identify_selected)
+        self.settings_btn.clicked.connect(self.open_settings)
         self.flash_btn.clicked.connect(self.start_flash)
         self.cancel_btn.clicked.connect(self.cancel_flash)
         self.clear_log_btn.clicked.connect(self._clear_log)
@@ -440,8 +483,9 @@ class MainWindow(QMainWindow):
             QMessageBox.information(self, "Busy", "Wait for Identify LED to finish.")
             return
 
-        settings = self.config_panel.to_settings()
+        settings = self._current_settings()
         save_settings(settings)
+        self._settings = settings
         error = self._validate(settings)
         if error:
             QMessageBox.warning(self, "Cannot start", error)
@@ -559,7 +603,7 @@ class MainWindow(QMainWindow):
             self,
             "Export session log",
             "flash-session.log",
-            "Text (*.log *.txt);;JSON (*.json)",
+            LOG_EXPORT_FILTER,
         )
         if not path_str:
             return
@@ -677,6 +721,7 @@ class MainWindow(QMainWindow):
             "Esc — Cancel\n"
             "Ctrl+S — Export log\n"
             "F5 / Refresh — Rescan devices\n"
+            "Ctrl+, — Settings (OpenOCD / theme)\n"
             "Identify — blink COM LED on the checked adapter\n"
             "View → Reset layout — default splitter sizes\n"
             "Drag splitter handles — resize devices / config / log\n"
@@ -685,7 +730,8 @@ class MainWindow(QMainWindow):
         )
 
     def closeEvent(self, event: QCloseEvent) -> None:
-        save_settings(self.config_panel.to_settings())
+        self._settings = self._current_settings()
+        save_settings(self._settings)
         self._save_ui_state()
         if self._flash is not None and self._flash.isRunning():
             self._flash.cancel()

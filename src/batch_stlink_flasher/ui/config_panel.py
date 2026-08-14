@@ -1,168 +1,111 @@
-"""Flash configuration form (compact; advanced fields collapsible)."""
+"""Flash job configuration form (firmware / target — tools live in Settings)."""
 
 from __future__ import annotations
 
-from PySide6.QtCore import Qt
+from pathlib import Path
+
 from PySide6.QtWidgets import (
     QFileDialog,
     QFormLayout,
     QHBoxLayout,
     QLineEdit,
-    QPushButton,
     QSizePolicy,
-    QStyle,
-    QToolButton,
-    QVBoxLayout,
     QWidget,
 )
 
 from batch_stlink_flasher.flashing.openocd import default_bin_base_address
 from batch_stlink_flasher.services.settings import AppSettings
-from batch_stlink_flasher.ui.theme import decorate_button
+from batch_stlink_flasher.ui.file_filters import FIRMWARE_FILTER, OPENOCD_CFG_FILTER
+from batch_stlink_flasher.ui.theme import create_browse_button
 
 
 class ConfigPanel(QWidget):
-    """OpenOCD / firmware / target settings."""
+    """Per-run flash fields kept on the main window."""
 
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
         self.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Maximum)
-        self._theme_mode = "system"
-        self.openocd_edit = QLineEdit()
         self.firmware_edit = QLineEdit()
-        self.interface_edit = QLineEdit()
         self.target_edit = QLineEdit()
-        self.scripts_edit = QLineEdit()
         self.bin_base_edit = QLineEdit()
-        self.timeout_edit = QLineEdit()
 
-        for edit in (
-            self.openocd_edit,
-            self.firmware_edit,
-            self.interface_edit,
-            self.target_edit,
-            self.scripts_edit,
-            self.bin_base_edit,
-            self.timeout_edit,
-        ):
+        for edit in (self.firmware_edit, self.target_edit, self.bin_base_edit):
             edit.setMinimumHeight(26)
             edit.setClearButtonEnabled(True)
 
-        primary = QFormLayout()
-        primary.setContentsMargins(0, 0, 0, 0)
-        primary.setHorizontalSpacing(8)
-        primary.setVerticalSpacing(4)
-        primary.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.ExpandingFieldsGrow)
-        primary.addRow("OpenOCD:", self._with_browse(self.openocd_edit, self._browse_openocd))
-        primary.addRow("Firmware:", self._with_browse(self.firmware_edit, self._browse_firmware))
-        primary.addRow("Target cfg:", self.target_edit)
-
-        advanced_form = QFormLayout()
-        advanced_form.setContentsMargins(0, 0, 0, 0)
-        advanced_form.setHorizontalSpacing(8)
-        advanced_form.setVerticalSpacing(4)
-        advanced_form.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.ExpandingFieldsGrow)
-        advanced_form.addRow("Interface cfg:", self.interface_edit)
-        advanced_form.addRow(
-            "Scripts (-s):",
-            self._with_browse(self.scripts_edit, self._browse_scripts, dir_mode=True),
-        )
-        advanced_form.addRow("BIN base:", self.bin_base_edit)
-        advanced_form.addRow("Timeout (s):", self.timeout_edit)
-
-        self._advanced_body = QWidget()
-        self._advanced_body.setLayout(advanced_form)
-        self._advanced_body.setVisible(False)
-
-        self._advanced_toggle = QToolButton()
-        self._advanced_toggle.setObjectName("configAdvancedToggle")
-        self._advanced_toggle.setText("Advanced settings")
-        self._advanced_toggle.setCheckable(True)
-        self._advanced_toggle.setChecked(False)
-        self._advanced_toggle.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
-        self._advanced_toggle.setArrowType(Qt.ArrowType.RightArrow)
-        self._advanced_toggle.setAutoRaise(True)
-        self._advanced_toggle.toggled.connect(self._on_advanced_toggled)
-
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(4)
-        layout.addLayout(primary)
-        layout.addWidget(self._advanced_toggle, alignment=Qt.AlignmentFlag.AlignLeft)
-        layout.addWidget(self._advanced_body)
-
-    def advanced_expanded(self) -> bool:
-        return self._advanced_toggle.isChecked()
-
-    def set_advanced_expanded(self, expanded: bool) -> None:
-        self._advanced_toggle.setChecked(expanded)
-
-    def _on_advanced_toggled(self, checked: bool) -> None:
-        self._advanced_body.setVisible(checked)
-        self._advanced_toggle.setArrowType(
-            Qt.ArrowType.DownArrow if checked else Qt.ArrowType.RightArrow
-        )
+        form = QFormLayout(self)
+        form.setContentsMargins(0, 0, 0, 0)
+        form.setHorizontalSpacing(8)
+        form.setVerticalSpacing(4)
+        form.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.ExpandingFieldsGrow)
+        form.addRow("Firmware:", self._with_browse(self.firmware_edit, self._browse_firmware))
+        form.addRow("Target cfg:", self._with_browse(self.target_edit, self._browse_target))
+        form.addRow("BIN base:", self.bin_base_edit)
 
     def apply_settings(self, settings: AppSettings) -> None:
-        self.openocd_edit.setText(settings.openocd_path)
         self.firmware_edit.setText(settings.last_firmware_path)
-        self.interface_edit.setText(settings.interface_cfg)
         self.target_edit.setText(settings.target_cfg)
-        self.scripts_edit.setText(settings.scripts_search_path)
         self.bin_base_edit.setText(settings.bin_base_address or f"0x{default_bin_base_address():X}")
-        self.timeout_edit.setText(str(settings.job_timeout_sec))
-        self._theme_mode = settings.theme_mode or "system"
 
-    def to_settings(self) -> AppSettings:
-        try:
-            timeout = float(self.timeout_edit.text().strip() or "120")
-        except ValueError:
-            timeout = 120.0
+    def merge_into(self, base: AppSettings) -> AppSettings:
+        """Return ``base`` with job fields taken from this panel."""
         return AppSettings(
-            openocd_path=self.openocd_edit.text().strip(),
+            openocd_path=base.openocd_path,
             last_firmware_path=self.firmware_edit.text().strip(),
-            interface_cfg=self.interface_edit.text().strip(),
+            interface_cfg=base.interface_cfg,
             target_cfg=self.target_edit.text().strip(),
-            scripts_search_path=self.scripts_edit.text().strip(),
+            scripts_search_path=base.scripts_search_path,
             bin_base_address=self.bin_base_edit.text().strip()
             or f"0x{default_bin_base_address():X}",
-            job_timeout_sec=timeout,
-            theme_mode=getattr(self, "_theme_mode", "system"),
+            job_timeout_sec=base.job_timeout_sec,
+            theme_mode=base.theme_mode,
         )
 
-    def _with_browse(self, edit: QLineEdit, handler, *, dir_mode: bool = False) -> QWidget:
+    def to_settings(self, base: AppSettings | None = None) -> AppSettings:
+        return self.merge_into(base or AppSettings())
+
+    def _with_browse(self, edit: QLineEdit, handler) -> QWidget:
         row = QWidget()
         layout = QHBoxLayout(row)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(4)
         layout.addWidget(edit, stretch=1)
-        btn = QPushButton("…")
-        btn.setFixedWidth(36)
-        btn.setToolTip("Browse…")
-        decorate_button(btn, standard=QStyle.StandardPixmap.SP_DirOpenIcon)
+        btn = create_browse_button()
         btn.clicked.connect(handler)
         layout.addWidget(btn)
-        row._dir_mode = dir_mode  # noqa: SLF001
         return row
 
-    def _browse_openocd(self) -> None:
-        path, _ = QFileDialog.getOpenFileName(self, "Select OpenOCD", self.openocd_edit.text())
-        if path:
-            self.openocd_edit.setText(path)
+    @staticmethod
+    def _dialog_start_path(current: str) -> str:
+        text = (current or "").strip()
+        if not text:
+            return ""
+        path = Path(text)
+        if path.is_file():
+            return str(path)
+        if path.is_dir():
+            return str(path)
+        parent = path.parent
+        if parent.is_dir():
+            return str(parent)
+        return text
 
     def _browse_firmware(self) -> None:
         path, _ = QFileDialog.getOpenFileName(
             self,
             "Select firmware",
-            self.firmware_edit.text(),
-            "Firmware (*.elf *.hex *.bin);;All files (*.*)",
+            self._dialog_start_path(self.firmware_edit.text()),
+            FIRMWARE_FILTER,
         )
         if path:
             self.firmware_edit.setText(path)
 
-    def _browse_scripts(self) -> None:
-        path = QFileDialog.getExistingDirectory(
-            self, "OpenOCD scripts directory", self.scripts_edit.text()
+    def _browse_target(self) -> None:
+        path, _ = QFileDialog.getOpenFileName(
+            self,
+            "Select OpenOCD target/board config",
+            self._dialog_start_path(self.target_edit.text()),
+            OPENOCD_CFG_FILTER,
         )
         if path:
-            self.scripts_edit.setText(path)
+            self.target_edit.setText(path)

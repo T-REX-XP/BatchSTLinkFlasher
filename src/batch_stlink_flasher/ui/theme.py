@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from enum import Enum
 
 from PySide6.QtCore import QSize, Qt
-from PySide6.QtGui import QColor, QGuiApplication, QIcon, QPainter, QPixmap
+from PySide6.QtGui import QColor, QGuiApplication, QIcon, QPainter, QPalette, QPixmap
 from PySide6.QtWidgets import QApplication, QPushButton, QStyle, QWidget
 
 from batch_stlink_flasher.assets_util import asset_path
@@ -164,10 +164,16 @@ def app_stylesheet(palette: ThemePalette | None = None) -> str:
     return f"""
     QWidget {{
         color: {p.text};
+        background-color: {p.bg};
         font-size: 13px;
     }}
     QMainWindow, QDialog {{
         background-color: {p.bg};
+        color: {p.text};
+    }}
+    QLabel {{
+        background-color: transparent;
+        color: {p.text};
     }}
     QMenuBar {{
         background-color: {p.bg_elevated};
@@ -175,12 +181,17 @@ def app_stylesheet(palette: ThemePalette | None = None) -> str:
         border-bottom: 1px solid {p.border};
         padding: 2px 4px;
     }}
+    QMenuBar::item {{
+        background: transparent;
+        color: {p.text};
+    }}
     QMenuBar::item:selected {{
         background-color: {p.bg_hover};
         border-radius: 4px;
     }}
     QMenu {{
         background-color: {p.bg_elevated};
+        color: {p.text};
         border: 1px solid {p.border};
         padding: 4px;
     }}
@@ -192,6 +203,58 @@ def app_stylesheet(palette: ThemePalette | None = None) -> str:
         background-color: {p.bg_elevated};
         color: {p.text_muted};
         border-top: 1px solid {p.border};
+    }}
+    QTabWidget::pane {{
+        border: 1px solid {p.border};
+        background-color: {p.bg};
+        border-radius: 6px;
+        top: -1px;
+        padding: 8px;
+    }}
+    QTabBar::tab {{
+        background-color: {p.bg_elevated};
+        color: {p.text_muted};
+        border: 1px solid {p.border};
+        border-bottom: none;
+        border-top-left-radius: 6px;
+        border-top-right-radius: 6px;
+        padding: 6px 14px;
+        margin-right: 2px;
+    }}
+    QTabBar::tab:selected {{
+        background-color: {p.bg};
+        color: {p.text};
+        font-weight: 600;
+    }}
+    QTabBar::tab:hover:!selected {{
+        color: {p.text};
+        background-color: {p.bg_hover};
+    }}
+    QComboBox {{
+        background-color: {p.bg_input};
+        border: 1px solid {p.border};
+        border-radius: 5px;
+        padding: 3px 8px;
+        min-height: 24px;
+        color: {p.text};
+    }}
+    QComboBox:hover {{
+        border-color: {p.accent};
+    }}
+    QComboBox::drop-down {{
+        border: none;
+        width: 22px;
+    }}
+    QComboBox QAbstractItemView {{
+        background-color: {p.bg_elevated};
+        color: {p.text};
+        border: 1px solid {p.border};
+        selection-background-color: {p.accent};
+        selection-color: {p.text_on_accent};
+        outline: 0;
+    }}
+    QDialogButtonBox {{
+        background-color: transparent;
     }}
     QSplitter::handle {{
         background-color: {p.border};
@@ -209,6 +272,7 @@ def app_stylesheet(palette: ThemePalette | None = None) -> str:
         border-radius: 6px;
         padding: 4px 10px;
         min-height: 24px;
+        color: {p.text};
     }}
     QPushButton:hover {{
         border-color: {p.accent};
@@ -221,6 +285,22 @@ def app_stylesheet(palette: ThemePalette | None = None) -> str:
         color: {p.text_disabled};
         border-color: {p.border_disabled};
         background-color: {p.bg_disabled};
+    }}
+    /* Path-row ellipsis — Windows common-dialog style, not icon chrome */
+    QPushButton#browseButton {{
+        border-radius: 2px;
+        padding: 0px 0px;
+        min-width: 28px;
+        max-width: 32px;
+        min-height: 26px;
+        max-height: 26px;
+        font-size: 14px;
+        font-weight: 600;
+        letter-spacing: 0px;
+    }}
+    QPushButton#browseButton:hover {{
+        border-color: {p.border};
+        background-color: {p.bg_hover};
     }}
     QPushButton#primaryButton {{
         background-color: {p.accent};
@@ -247,6 +327,7 @@ def app_stylesheet(palette: ThemePalette | None = None) -> str:
         border: 1px solid {p.border};
         border-radius: 5px;
         padding: 3px 6px;
+        color: {p.text};
         selection-background-color: {p.accent};
         selection-color: {p.text_on_accent};
     }}
@@ -259,6 +340,7 @@ def app_stylesheet(palette: ThemePalette | None = None) -> str:
         gridline-color: {p.table_grid};
         border: 1px solid {p.border};
         border-radius: 6px;
+        color: {p.text};
     }}
     QHeaderView::section {{
         background-color: {p.bg_elevated};
@@ -279,14 +361,9 @@ def app_stylesheet(palette: ThemePalette | None = None) -> str:
         font-size: 12px;
         padding: 0 8px;
     }}
-    QToolButton#configAdvancedToggle {{
+    QLabel#toolsSummary {{
         color: {p.text_muted};
-        border: none;
-        padding: 2px 4px;
-        font-weight: 600;
-    }}
-    QToolButton#configAdvancedToggle:hover {{
-        color: {p.accent};
+        font-size: 12px;
     }}
     QScrollBar:vertical {{
         background: {p.bg};
@@ -302,6 +379,43 @@ def app_stylesheet(palette: ThemePalette | None = None) -> str:
         height: 0;
     }}
     """
+
+
+def build_qpalette(palette: ThemePalette | None = None) -> QPalette:
+    """Fusion QPalette so dialogs / tabs match even where stylesheets skip a role."""
+    p = palette or active_palette()
+    qp = QPalette()
+    window = QColor(p.bg)
+    text = QColor(p.text)
+    base = QColor(p.bg_input)
+    button = QColor(p.bg_elevated)
+    muted = QColor(p.text_muted)
+    disabled = QColor(p.text_disabled)
+    highlight = QColor(p.selection_bg)
+    accent = QColor(p.accent)
+
+    qp.setColor(QPalette.ColorRole.Window, window)
+    qp.setColor(QPalette.ColorRole.WindowText, text)
+    qp.setColor(QPalette.ColorRole.Base, base)
+    qp.setColor(QPalette.ColorRole.AlternateBase, QColor(p.table_alt))
+    qp.setColor(QPalette.ColorRole.ToolTipBase, button)
+    qp.setColor(QPalette.ColorRole.ToolTipText, text)
+    qp.setColor(QPalette.ColorRole.Text, text)
+    qp.setColor(QPalette.ColorRole.Button, button)
+    qp.setColor(QPalette.ColorRole.ButtonText, text)
+    qp.setColor(QPalette.ColorRole.BrightText, QColor("#ffffff"))
+    qp.setColor(QPalette.ColorRole.Link, accent)
+    qp.setColor(QPalette.ColorRole.Highlight, highlight)
+    qp.setColor(QPalette.ColorRole.HighlightedText, text)
+    qp.setColor(QPalette.ColorRole.PlaceholderText, muted)
+
+    for group in (QPalette.ColorGroup.Disabled, QPalette.ColorGroup.Inactive):
+        qp.setColor(group, QPalette.ColorRole.WindowText, disabled)
+        qp.setColor(group, QPalette.ColorRole.Text, disabled)
+        qp.setColor(group, QPalette.ColorRole.ButtonText, disabled)
+        qp.setColor(group, QPalette.ColorRole.Highlight, QColor(p.border))
+        qp.setColor(group, QPalette.ColorRole.HighlightedText, muted)
+    return qp
 
 
 def splash_stylesheet(palette: ThemePalette | None = None) -> str:
@@ -341,7 +455,7 @@ def splash_stylesheet(palette: ThemePalette | None = None) -> str:
 
 
 def apply_app_theme(app: QApplication, mode: ThemeMode | str | None = ThemeMode.SYSTEM) -> ThemePalette:
-    """Apply Fusion style + stylesheet for the resolved mode; return active palette."""
+    """Apply Fusion style + palette + stylesheet for the resolved mode; return active palette."""
     global _ACTIVE, ACCENT, ACCENT_HOVER, ACCENT_PRESSED, DANGER, DANGER_HOVER
     global BG, BG_ELEVATED, BG_INPUT, BORDER, TEXT, TEXT_MUTED
 
@@ -360,6 +474,7 @@ def apply_app_theme(app: QApplication, mode: ThemeMode | str | None = ThemeMode.
     TEXT_MUTED = palette.text_muted
 
     app.setStyle("Fusion")
+    app.setPalette(build_qpalette(palette))
     app.setStyleSheet(app_stylesheet(palette))
     icon = load_app_icon()
     if not icon.isNull():
@@ -437,6 +552,23 @@ def style_standard_icon(widget: QWidget, standard: QStyle.StandardPixmap) -> QIc
     return style.standardIcon(standard)
 
 
+def create_browse_button(parent: QWidget | None = None) -> QPushButton:
+    """
+    Classic Windows path-row browse control: square-ish button labeled ``…``.
+
+    Avoids OS folder bitmaps and custom icon glyphs — matches common-dialog UX.
+    """
+    btn = QPushButton("…", parent)
+    btn.setObjectName("browseButton")
+    btn.setToolTip("Browse…")
+    btn.setAccessibleName("Browse")
+    btn.setAutoDefault(False)
+    btn.setDefault(False)
+    btn.setFixedSize(30, 26)
+    btn.setFocusPolicy(Qt.FocusPolicy.TabFocus)
+    return btn
+
+
 def decorate_button(
     button: QPushButton,
     *,
@@ -446,6 +578,7 @@ def decorate_button(
 ) -> None:
     """Attach a standard icon and optional objectName role (primary/danger)."""
     if standard is not None:
+        # Never use SP_DirOpenIcon here — callers should use create_browse_button().
         button.setIcon(style_standard_icon(button, standard))
         button.setIconSize(QSize(icon_size, icon_size))
     if role == "primary":

@@ -48,7 +48,8 @@ src/batch_stlink_flasher/
     theme.py
     flow_layout.py     # wrapping toolbar
     device_table.py    # resizable columns; narrow-width column hide
-    config_panel.py    # primary + collapsible Advanced
+    config_panel.py    # per-run: firmware, target, BIN base
+    settings_dialog.py # OpenOCD path, interface, scripts, timeout, theme
     log_view.py
     workers.py
   services/
@@ -131,12 +132,13 @@ Never call blocking USB/OpenOCD APIs on the UI thread.
 
 Persist with `QSettings` (org=`BatchSTLinkFlasher`, app=`BatchSTLinkFlasher`):
 
-- `openocd_path`
-- `last_firmware_path`
-- `interface_cfg`, `target_cfg`
-- `bin_base_address`
-- `job_timeout_sec`
-- `theme_mode` (system / light / dark)
+- `openocd_path`, `interface_cfg`, `scripts_search_path`, `job_timeout_sec`, `theme_mode`
+  — edited in **Settings** dialog (`settings_dialog.py`)
+- `last_firmware_path`, `target_cfg`, `bin_base_address`
+  — edited on the main-window **config panel**
+- UI geometry / splitter / column widths under `ui/*`
+
+Open **Edit → Settings…** (or the toolbar **Settings** button) for tool preferences.
 
 ## 7. Error taxonomy
 

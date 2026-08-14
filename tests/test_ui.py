@@ -10,8 +10,7 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 pytest.importorskip("PySide6")
 
-from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QApplication
+from PySide6.QtWidgets import QApplication, QDialog, QLabel
 
 from batch_stlink_flasher.flashing.models import AdapterInfo
 from batch_stlink_flasher.services.settings import AppSettings, load_settings, save_settings
@@ -20,6 +19,7 @@ from batch_stlink_flasher.ui.about_dialog import AboutDialog
 from batch_stlink_flasher.ui.config_panel import ConfigPanel
 from batch_stlink_flasher.ui.device_table import DeviceTable
 from batch_stlink_flasher.ui.main_window import MainWindow
+from batch_stlink_flasher.ui.settings_dialog import SettingsDialog
 
 
 @pytest.fixture(scope="session")
@@ -94,21 +94,127 @@ def test_device_table_selection(qapp: QApplication) -> None:
 
 def test_config_panel_roundtrip(qapp: QApplication) -> None:
     panel = ConfigPanel()
-    panel.apply_settings(
-        AppSettings(
-            openocd_path="openocd",
-            last_firmware_path="fw.elf",
-            interface_cfg="interface/stlink.cfg",
-            target_cfg="target/stm32f1x.cfg",
-            job_timeout_sec=42,
-        )
+    base = AppSettings(
+        openocd_path="C:/tools/openocd.exe",
+        last_firmware_path="fw.elf",
+        interface_cfg="interface/stlink.cfg",
+        target_cfg="target/stm32f1x.cfg",
+        job_timeout_sec=42,
+        theme_mode="dark",
     )
-    settings = panel.to_settings()
+    panel.apply_settings(base)
+    settings = panel.merge_into(base)
     assert settings.last_firmware_path == "fw.elf"
+    assert settings.target_cfg == "target/stm32f1x.cfg"
+    assert settings.openocd_path == "C:/tools/openocd.exe"
     assert settings.job_timeout_sec == 42
-    assert panel.advanced_expanded() is False
-    panel.set_advanced_expanded(True)
-    assert panel.advanced_expanded() is True
+    assert settings.theme_mode == "dark"
+
+
+def test_settings_dialog_roundtrip(qapp: QApplication, tmp_path) -> None:
+    base = AppSettings(
+        openocd_path="openocd",
+        last_firmware_path="keep.elf",
+        interface_cfg="interface/stlink.cfg",
+        target_cfg="target/stm32f1x.cfg",
+        job_timeout_sec=120,
+        theme_mode="system",
+    )
+    dialog = SettingsDialog(base)
+    dialog.openocd_edit.setText(str(tmp_path / "openocd.exe"))
+    dialog.interface_edit.setText("interface/stlink-v2.cfg")
+    dialog.scripts_edit.setText(str(tmp_path))
+    dialog.timeout_edit.setText("not-a-number")
+    dialog.theme_combo.setCurrentIndex(dialog.theme_combo.findData("light"))
+    out = dialog.to_settings(base)
+    assert out.last_firmware_path == "keep.elf"
+    assert out.target_cfg == "target/stm32f1x.cfg"
+    assert out.interface_cfg == "interface/stlink-v2.cfg"
+    assert out.job_timeout_sec == 120.0
+    assert out.theme_mode == "light"
+    dialog.close()
+
+
+def test_settings_dialog_browse(qapp: QApplication, monkeypatch, tmp_path) -> None:
+    from batch_stlink_flasher.ui.file_filters import OPENOCD_CFG_FILTER, openocd_executable_filter
+
+    openocd = tmp_path / "openocd.exe"
+    openocd.write_text("", encoding="utf-8")
+    iface = tmp_path / "stlink.cfg"
+    iface.write_text("", encoding="utf-8")
+    scripts = tmp_path / "scripts"
+    scripts.mkdir()
+    dialog = SettingsDialog(AppSettings())
+
+    def fake_open(*a, **k):
+        caption = a[1] if len(a) > 1 else ""
+        filt = a[3] if len(a) > 3 else k.get("filter", "")
+        if "executable" in caption.lower():
+            assert filt == openocd_executable_filter()
+            return (str(openocd), "")
+        assert filt == OPENOCD_CFG_FILTER
+        return (str(iface), "")
+
+    monkeypatch.setattr(
+        "batch_stlink_flasher.ui.settings_dialog.QFileDialog.getOpenFileName",
+        fake_open,
+    )
+    dialog._browse_openocd()  # noqa: SLF001
+    assert dialog.openocd_edit.text() == str(openocd)
+    dialog._browse_interface()  # noqa: SLF001
+    assert dialog.interface_edit.text() == str(iface)
+    monkeypatch.setattr(
+        "batch_stlink_flasher.ui.settings_dialog.QFileDialog.getExistingDirectory",
+        lambda *a, **k: str(scripts),
+    )
+    dialog._browse_scripts()  # noqa: SLF001
+    assert dialog.scripts_edit.text() == str(scripts)
+    dialog.close()
+
+
+def test_config_panel_browse_filters(qapp: QApplication, monkeypatch, tmp_path) -> None:
+    from batch_stlink_flasher.ui.file_filters import FIRMWARE_FILTER, OPENOCD_CFG_FILTER
+
+    panel = ConfigPanel()
+    fw = tmp_path / "a.elf"
+    fw.write_text("", encoding="utf-8")
+    cfg = tmp_path / "stm32f1x.cfg"
+    cfg.write_text("", encoding="utf-8")
+
+    def fake_open(*a, **k):
+        filt = a[3] if len(a) > 3 else k.get("filter", "")
+        caption = a[1] if len(a) > 1 else ""
+        if "firmware" in caption.lower():
+            assert filt == FIRMWARE_FILTER
+            assert "*.elf" in filt and "*.hex" in filt and "*.bin" in filt
+            return (str(fw), "")
+        assert filt == OPENOCD_CFG_FILTER
+        assert "*.cfg" in filt
+        return (str(cfg), "")
+
+    monkeypatch.setattr(
+        "batch_stlink_flasher.ui.config_panel.QFileDialog.getOpenFileName",
+        fake_open,
+    )
+    panel._browse_firmware()  # noqa: SLF001
+    assert panel.firmware_edit.text() == str(fw)
+    panel._browse_target()  # noqa: SLF001
+    assert panel.target_edit.text() == str(cfg)
+
+
+def test_file_filters_module(monkeypatch) -> None:
+    from batch_stlink_flasher.ui import file_filters as ff
+
+    assert "*.elf" in ff.FIRMWARE_FILTER
+    assert "*.cfg" in ff.OPENOCD_CFG_FILTER
+    assert "*.json" in ff.LOG_EXPORT_FILTER
+    exe = ff.openocd_executable_filter()
+    assert "All files" in exe
+    assert "openocd" in exe.lower()
+    monkeypatch.setattr(ff.sys, "platform", "linux")
+    posix = ff.openocd_executable_filter()
+    assert "openocd" in posix
+    assert "*.exe" not in posix
 
 
 def test_main_window_builds(qapp: QApplication, monkeypatch) -> None:
@@ -123,10 +229,11 @@ def test_main_window_builds(qapp: QApplication, monkeypatch) -> None:
     assert not window.flash_btn.icon().isNull()
     assert window._theme_actions  # noqa: SLF001
     assert window.main_splitter.count() == 3
+    assert "OpenOCD:" in window.tools_summary.text()
     window.set_theme_mode("light")
-    assert window.config_panel.to_settings().theme_mode == "light"
+    assert window._current_settings().theme_mode == "light"  # noqa: SLF001
     window.set_theme_mode("system")
-    err = window._validate(window.config_panel.to_settings())  # noqa: SLF001
+    err = window._validate(window._current_settings())  # noqa: SLF001
     assert err is not None
     window._reset_layout()  # noqa: SLF001
     window._save_ui_state()  # noqa: SLF001
@@ -134,6 +241,31 @@ def test_main_window_builds(qapp: QApplication, monkeypatch) -> None:
     window._update_summary_idle()  # noqa: SLF001
     window._update_summary_counts(succeeded=1, failed=0, cancelled=0, running=0)  # noqa: SLF001
     assert "Succeeded: 1" in window.summary_label.text()
+    window.close()
+
+
+def test_main_window_open_settings(qapp: QApplication, monkeypatch, tmp_path) -> None:
+    monkeypatch.setattr(
+        "batch_stlink_flasher.ui.main_window.DiscoveryWorker.start",
+        lambda self: None,
+    )
+    window = MainWindow(auto_refresh=False)
+
+    class FakeDialog(SettingsDialog):
+        def __init__(self, settings, parent=None):
+            super().__init__(settings, parent)
+            self.openocd_edit.setText(str(tmp_path / "ocd.exe"))
+            self.timeout_edit.setText("77")
+            self.theme_combo.setCurrentIndex(self.theme_combo.findData("dark"))
+
+        def exec(self):
+            return QDialog.DialogCode.Accepted
+
+    monkeypatch.setattr("batch_stlink_flasher.ui.main_window.SettingsDialog", FakeDialog)
+    window.open_settings()
+    assert window._settings.job_timeout_sec == 77.0  # noqa: SLF001
+    assert window._settings.theme_mode == "dark"  # noqa: SLF001
+    assert str(tmp_path / "ocd.exe") in window.tools_summary.text()
     window.close()
 
 
@@ -160,22 +292,10 @@ def test_main_window_accepts_initial_adapters(qapp: QApplication, monkeypatch) -
     window.close()
 
 
-def test_config_panel_browse_handlers(qapp: QApplication, monkeypatch, tmp_path) -> None:
+def test_config_panel_browse_firmware(qapp: QApplication, monkeypatch, tmp_path) -> None:
     panel = ConfigPanel()
-    openocd = tmp_path / "openocd.exe"
-    openocd.write_text("", encoding="utf-8")
     fw = tmp_path / "a.elf"
     fw.write_text("", encoding="utf-8")
-    scripts = tmp_path / "scripts"
-    scripts.mkdir()
-
-    monkeypatch.setattr(
-        "batch_stlink_flasher.ui.config_panel.QFileDialog.getOpenFileName",
-        lambda *a, **k: (str(openocd), ""),
-    )
-    panel._browse_openocd()  # noqa: SLF001
-    assert panel.openocd_edit.text() == str(openocd)
-
     monkeypatch.setattr(
         "batch_stlink_flasher.ui.config_panel.QFileDialog.getOpenFileName",
         lambda *a, **k: (str(fw), ""),
@@ -183,20 +303,8 @@ def test_config_panel_browse_handlers(qapp: QApplication, monkeypatch, tmp_path)
     panel._browse_firmware()  # noqa: SLF001
     assert panel.firmware_edit.text() == str(fw)
 
-    monkeypatch.setattr(
-        "batch_stlink_flasher.ui.config_panel.QFileDialog.getExistingDirectory",
-        lambda *a, **k: str(scripts),
-    )
-    panel._browse_scripts()  # noqa: SLF001
-    assert panel.scripts_edit.text() == str(scripts)
-
-    panel.timeout_edit.setText("not-a-number")
-    assert panel.to_settings().job_timeout_sec == 120.0
-
 
 def test_about_dialog(qapp: QApplication) -> None:
-    from PySide6.QtWidgets import QLabel
-
     dialog = AboutDialog()
     assert "About" in dialog.windowTitle()
     version_label = dialog.findChild(QLabel, "aboutVersion")

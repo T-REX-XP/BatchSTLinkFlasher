@@ -180,14 +180,15 @@ def test_start_and_cancel_flash(window: MainWindow, tmp_path: Path, monkeypatch:
         "batch_stlink_flasher.ui.main_window.resolve_openocd_path",
         lambda _v: openocd,
     )
-    window.config_panel.apply_settings(
-        AppSettings(
-            openocd_path=str(openocd),
-            last_firmware_path=str(fw),
-            interface_cfg="interface/stlink.cfg",
-            target_cfg="target/stm32f1x.cfg",
-        )
+    settings = AppSettings(
+        openocd_path=str(openocd),
+        last_firmware_path=str(fw),
+        interface_cfg="interface/stlink.cfg",
+        target_cfg="target/stm32f1x.cfg",
     )
+    window._settings = settings
+    window.config_panel.apply_settings(settings)
+    window._update_tools_summary()  # noqa: SLF001
     window.device_table.set_adapters(
         [
             AdapterInfo(

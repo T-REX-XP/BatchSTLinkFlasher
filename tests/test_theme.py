@@ -41,15 +41,20 @@ def test_assets_exist() -> None:
 
 
 def test_theme_loads(qapp: QApplication) -> None:
+    from PySide6.QtGui import QPalette
+
     from batch_stlink_flasher.ui.theme import ThemeMode, active_palette, resolve_palette
 
     apply_app_theme(qapp, ThemeMode.DARK)
     assert "primaryButton" in qapp.styleSheet()
+    assert "QTabWidget::pane" in qapp.styleSheet()
     assert active_palette().name == "dark"
+    assert qapp.palette().color(QPalette.ColorRole.Window).name() == active_palette().bg
     apply_app_theme(qapp, ThemeMode.LIGHT)
     assert active_palette().name == "light"
     assert active_palette().bg.lower() == "#f4f6f8"
     assert "primaryButton" in qapp.styleSheet()
+    assert qapp.palette().color(QPalette.ColorRole.Window).name().lower() == "#f4f6f8"
     assert resolve_palette(ThemeMode.DARK).name == "dark"
     assert resolve_palette(ThemeMode.LIGHT).name == "light"
     assert not load_app_icon().isNull()
@@ -57,6 +62,17 @@ def test_theme_loads(qapp: QApplication) -> None:
 
     assert not load_logo_pixmap(max_width=64).isNull()
     assert not load_splash_pixmap(max_width=64).isNull()
+
+
+def test_build_qpalette_matches_theme() -> None:
+    from PySide6.QtGui import QPalette
+
+    from batch_stlink_flasher.ui.theme import DARK, LIGHT, build_qpalette
+
+    dark = build_qpalette(DARK)
+    assert dark.color(QPalette.ColorRole.WindowText).name().lower() == DARK.text.lower()
+    light = build_qpalette(LIGHT)
+    assert light.color(QPalette.ColorRole.Base).name().lower() == LIGHT.bg_input.lower()
 
 
 def test_normalize_theme_mode() -> None:
@@ -82,6 +98,18 @@ def test_decorate_button(qapp: QApplication) -> None:
     decorate_button(btn, standard=QStyle.StandardPixmap.SP_DialogApplyButton, role="primary")
     assert btn.objectName() == "primaryButton"
     assert not btn.icon().isNull()
+
+
+def test_create_browse_button(qapp: QApplication) -> None:
+    from batch_stlink_flasher.ui.theme import create_browse_button
+
+    apply_app_theme(qapp, "dark")
+    btn = create_browse_button()
+    assert btn.objectName() == "browseButton"
+    assert btn.text() == "…"
+    assert btn.icon().isNull()
+    assert "QPushButton#browseButton" in qapp.styleSheet()
+    btn.close()
 
 
 def test_theme_fallbacks(qapp: QApplication, monkeypatch, tmp_path) -> None:

@@ -89,6 +89,7 @@ Desktop application that flashes **the same firmware file** onto **1–N STM32 (
 | FR-UX-03 | Keyboard: Start / Cancel shortcuts documented in UI or Help | Could |
 | FR-UX-04 | Device list, config, and log panes are user-resizable (splitter); usable on small laptop screens | Should |
 | FR-UX-05 | Device table columns are user-resizable; secondary columns may hide when the viewport is narrow | Should |
+| FR-UX-06 | Settings dialog for OpenOCD path, interface/scripts, job timeout, and theme (Edit → Settings / toolbar) | Must |
 
 ## 5. Non-functional requirements
 
