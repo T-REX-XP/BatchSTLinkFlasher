@@ -193,7 +193,15 @@ def test_flash_worker(qapp, monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> 
     )
 
     class _Orch:
-        def __init__(self, adapters, config, on_line=None, on_job_done=None, known_adapters=None):
+        def __init__(
+            self,
+            adapters,
+            config,
+            on_line=None,
+            on_job_done=None,
+            known_adapters=None,
+            force_sequential=False,
+        ):
             self._on_line = on_line
             self._on_done = on_job_done
 
@@ -210,7 +218,7 @@ def test_flash_worker(qapp, monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> 
             pass
 
     monkeypatch.setattr("batch_stlink_flasher.ui.workers.FlashOrchestrator", _Orch)
-    worker = FlashWorker([_adapter("A")], cfg)
+    worker = FlashWorker([_adapter("A")], cfg, force_sequential=True)
     progress: list[str] = []
     worker.progress_updated.connect(lambda _s, label: progress.append(label))
     finished: list = []

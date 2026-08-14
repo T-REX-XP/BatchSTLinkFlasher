@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from enum import Enum
 from pathlib import Path
 
 from PySide6.QtCore import QSettings
@@ -12,6 +13,25 @@ from batch_stlink_flasher.bundled_tools import discover_bundled_tools
 ORG = "BatchSTLinkFlasher"
 APP = "BatchSTLinkFlasher"
 DEFAULT_BIN_BASE = "0x08000000"
+
+
+class FlashMode(str, Enum):
+    """How FlashOrchestrator schedules selected adapters."""
+
+    AUTO = "auto"
+    """HLA-bound probes in parallel; clones sequential with USB isolation."""
+
+    SEQUENTIAL = "sequential"
+    """One adapter at a time (HLA still uses hla_serial; clones still isolate)."""
+
+
+def normalize_flash_mode(value: str | FlashMode | None) -> FlashMode:
+    if isinstance(value, FlashMode):
+        return value
+    text = (value or "").strip().lower()
+    if text in {FlashMode.SEQUENTIAL.value, "seq", "always_sequential"}:
+        return FlashMode.SEQUENTIAL
+    return FlashMode.AUTO
 
 
 @dataclass
@@ -24,6 +44,7 @@ class AppSettings:
     bin_base_address: str = DEFAULT_BIN_BASE
     job_timeout_sec: float = 120.0
     theme_mode: str = "system"  # system | light | dark
+    flash_mode: str = FlashMode.AUTO.value  # auto | sequential
 
 
 def load_settings() -> AppSettings:
@@ -37,6 +58,7 @@ def load_settings() -> AppSettings:
         bin_base_address=str(q.value("bin_base_address", DEFAULT_BIN_BASE)),
         job_timeout_sec=float(q.value("job_timeout_sec", 120.0)),
         theme_mode=str(q.value("theme_mode", "system")),
+        flash_mode=normalize_flash_mode(str(q.value("flash_mode", FlashMode.AUTO.value))).value,
     )
     return apply_bundled_defaults(settings)
 
@@ -51,6 +73,7 @@ def save_settings(settings: AppSettings) -> None:
     q.setValue("bin_base_address", settings.bin_base_address)
     q.setValue("job_timeout_sec", settings.job_timeout_sec)
     q.setValue("theme_mode", settings.theme_mode)
+    q.setValue("flash_mode", normalize_flash_mode(settings.flash_mode).value)
     q.sync()
 
 

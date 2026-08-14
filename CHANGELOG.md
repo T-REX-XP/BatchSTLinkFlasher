@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- Settings → Flash mode: **Auto** (parallel HLA / sequential clones) or **Always sequential**
 - Settings dialog (Edit → Settings / toolbar): OpenOCD path, interface, scripts ``-s``, timeout, theme
 - Docs: ``docs/stlink-clone-serial.md`` — ST-Link V2 clone USB serial conflicts, recovery approaches, and community repos (from ``docs/stlink.pdf`` notes)
 - Device table shows USB port / hub (from Windows ``LocationInformation``)

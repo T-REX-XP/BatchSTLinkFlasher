@@ -62,7 +62,8 @@ class FlashOrchestrator:
     * **Unbound** (clone placeholder serial): one-at-a-time, temporarily
       disabling sibling ST-Link USB nodes so OpenOCD attaches to only that probe.
 
-    HLA jobs run first (parallel), then unbound jobs (sequential + isolation).
+    HLA jobs run first (parallel), then unbound jobs (sequential + isolation),
+    unless ``force_sequential`` is set (one adapter at a time for all).
     """
 
     def __init__(
@@ -73,6 +74,7 @@ class FlashOrchestrator:
         on_line: JobLineCallback | None = None,
         on_job_done: JobDoneCallback | None = None,
         known_adapters: Sequence[AdapterInfo] | None = None,
+        force_sequential: bool = False,
     ) -> None:
         if not adapters:
             raise ValueError("adapters must not be empty")
@@ -82,6 +84,7 @@ class FlashOrchestrator:
         self.on_job_done = on_job_done
         # Full discovery set — used to disable non-target ST-Links for clones.
         self.known_adapters = list(known_adapters) if known_adapters is not None else list(adapters)
+        self.force_sequential = force_sequential
 
         self._lock = threading.Lock()
         self._running = False
@@ -149,11 +152,21 @@ class FlashOrchestrator:
             else:
                 unbound.append((key, adapter))
 
-        if bound:
-            self._run_parallel(bound)
+        if self.force_sequential:
+            # One at a time: HLA keeps hla_serial; clones still isolate siblings.
+            for key, adapter in bound + unbound:
+                if self._is_cancelled():
+                    break
+                if can_bind_hla(adapter):
+                    self._run_parallel([(key, adapter)])
+                else:
+                    self._run_sequential_isolated([(key, adapter)])
+        else:
+            if bound:
+                self._run_parallel(bound)
 
-        if unbound and not self._is_cancelled():
-            self._run_sequential_isolated(unbound)
+            if unbound and not self._is_cancelled():
+                self._run_sequential_isolated(unbound)
 
         ordered: list[AdapterJobResult] = []
         with self._lock:

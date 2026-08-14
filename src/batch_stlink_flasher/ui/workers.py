@@ -60,11 +60,13 @@ class FlashWorker(QThread):
         config: FlashConfig,
         *,
         known_adapters: list[AdapterInfo] | None = None,
+        force_sequential: bool = False,
     ) -> None:
         super().__init__()
         self._adapters = adapters
         self._config = config
         self._known_adapters = known_adapters
+        self._force_sequential = force_sequential
         self._orch: FlashOrchestrator | None = None
 
     def cancel(self) -> None:
@@ -95,6 +97,7 @@ class FlashWorker(QThread):
                 on_line=on_line,
                 on_job_done=on_done,
                 known_adapters=self._known_adapters,
+                force_sequential=self._force_sequential,
             )
             self._orch = orch
             summary: OrchestratorSummary = orch.run()

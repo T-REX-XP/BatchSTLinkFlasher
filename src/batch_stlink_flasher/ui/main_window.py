@@ -307,7 +307,7 @@ class MainWindow(QMainWindow):
         help_menu.addAction(shortcuts)
 
     def open_settings(self) -> None:
-        """Edit OpenOCD path, interface, scripts, timeout, and theme."""
+        """Edit OpenOCD path, interface, scripts, timeout, flash mode, and theme."""
         current = self._current_settings()
         dialog = SettingsDialog(current, self)
         if dialog.exec() != QDialog.DialogCode.Accepted:
@@ -321,17 +321,26 @@ class MainWindow(QMainWindow):
         self.statusBar().showMessage("Settings saved")
 
     def _update_tools_summary(self) -> None:
+        from batch_stlink_flasher.services.settings import FlashMode, normalize_flash_mode
+
         openocd = self._settings.openocd_path or "openocd"
         iface = self._settings.interface_cfg or "(no interface)"
         timeout = self._settings.job_timeout_sec
         scripts = self._settings.scripts_search_path.strip()
         scripts_bit = f" · scripts: {scripts}" if scripts else ""
+        flash_mode = normalize_flash_mode(self._settings.flash_mode)
+        mode_bit = (
+            " · flash: sequential"
+            if flash_mode is FlashMode.SEQUENTIAL
+            else " · flash: auto"
+        )
         self.tools_summary.setText(
-            f"OpenOCD: {openocd} · {iface} · {timeout:g}s{scripts_bit}"
+            f"OpenOCD: {openocd} · {iface} · {timeout:g}s{scripts_bit}{mode_bit}"
         )
         self.tools_summary.setToolTip(
             f"OpenOCD: {openocd}\n{iface}\ntimeout {timeout:g}s"
             + (f"\nscripts: {scripts}" if scripts else "")
+            + f"\nflash mode: {flash_mode.value}"
             + "\n(Edit → Settings)"
         )
 
@@ -537,15 +546,20 @@ class MainWindow(QMainWindow):
         self._update_summary_counts()
 
         from batch_stlink_flasher.flashing.orchestrator import can_bind_hla
+        from batch_stlink_flasher.services.settings import FlashMode, normalize_flash_mode
 
+        force_sequential = normalize_flash_mode(settings.flash_mode) is FlashMode.SEQUENTIAL
         n_hla = sum(1 for a in adapters if can_bind_hla(a))
         n_clone = len(adapters) - n_hla
-        mode_bits: list[str] = []
-        if n_hla:
-            mode_bits.append(f"{n_hla} parallel (HLA)")
-        if n_clone:
-            mode_bits.append(f"{n_clone} sequential (clone isolate)")
-        mode = " + ".join(mode_bits) if mode_bits else "flash"
+        if force_sequential:
+            mode = f"{len(adapters)} sequential (settings)"
+        else:
+            mode_bits: list[str] = []
+            if n_hla:
+                mode_bits.append(f"{n_hla} parallel (HLA)")
+            if n_clone:
+                mode_bits.append(f"{n_clone} sequential (clone isolate)")
+            mode = " + ".join(mode_bits) if mode_bits else "flash"
 
         self.flash_btn.setEnabled(False)
         self.cancel_btn.setEnabled(True)
@@ -555,6 +569,7 @@ class MainWindow(QMainWindow):
             adapters,
             config,
             known_adapters=self.device_table.adapters(),
+            force_sequential=force_sequential,
         )
         worker.line_received.connect(self._on_flash_line)
         worker.progress_updated.connect(self._on_progress)

@@ -56,6 +56,7 @@ class ConfigPanel(QWidget):
             or f"0x{default_bin_base_address():X}",
             job_timeout_sec=base.job_timeout_sec,
             theme_mode=base.theme_mode,
+            flash_mode=base.flash_mode,
         )
 
     def to_settings(self, base: AppSettings | None = None) -> AppSettings:

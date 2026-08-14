@@ -1,4 +1,4 @@
-"""Application settings dialog (OpenOCD tools, timeout, appearance)."""
+"""Application settings dialog (OpenOCD tools, flash mode, appearance)."""
 
 from __future__ import annotations
 
@@ -10,20 +10,25 @@ from PySide6.QtWidgets import (
     QDialogButtonBox,
     QFileDialog,
     QFormLayout,
+    QLabel,
     QLineEdit,
     QTabWidget,
     QVBoxLayout,
     QWidget,
 )
 
-from batch_stlink_flasher.services.settings import AppSettings
+from batch_stlink_flasher.services.settings import (
+    AppSettings,
+    FlashMode,
+    normalize_flash_mode,
+)
 from batch_stlink_flasher.ui.file_filters import OPENOCD_CFG_FILTER, openocd_executable_filter
 from batch_stlink_flasher.ui.path_row import path_browse_row
 from batch_stlink_flasher.ui.theme import ThemeMode, normalize_theme_mode
 
 
 class SettingsDialog(QDialog):
-    """Modal settings: tools / OpenOCD and appearance."""
+    """Modal settings: tools / OpenOCD, flash strategy, and appearance."""
 
     def __init__(self, settings: AppSettings, parent=None) -> None:
         super().__init__(parent)
@@ -38,6 +43,22 @@ class SettingsDialog(QDialog):
         self.timeout_edit = QLineEdit()
         self.timeout_edit.setMinimumHeight(26)
         self.timeout_edit.setClearButtonEnabled(True)
+
+        self.flash_mode_combo = QComboBox()
+        self.flash_mode_combo.addItem(
+            "Auto — parallel HLA, sequential clones",
+            FlashMode.AUTO.value,
+        )
+        self.flash_mode_combo.addItem(
+            "Always sequential",
+            FlashMode.SEQUENTIAL.value,
+        )
+        flash_hint = QLabel(
+            "Clones without a unique HLA serial always flash one-at-a-time "
+            "with USB isolation. Force-parallel for clones is not offered (unsafe)."
+        )
+        flash_hint.setWordWrap(True)
+        flash_hint.setObjectName("mutedLabel")
 
         self.theme_combo = QComboBox()
         self.theme_combo.addItem("System default", ThemeMode.SYSTEM.value)
@@ -58,6 +79,8 @@ class SettingsDialog(QDialog):
             path_browse_row(self.scripts_edit, self._browse_scripts),
         )
         tools_form.addRow("Timeout (s):", self.timeout_edit)
+        tools_form.addRow("Flash mode:", self.flash_mode_combo)
+        tools_form.addRow("", flash_hint)
 
         appearance = QWidget()
         appearance.setAutoFillBackground(True)
@@ -85,8 +108,11 @@ class SettingsDialog(QDialog):
         self.interface_edit.setText(settings.interface_cfg)
         self.scripts_edit.setText(settings.scripts_search_path)
         self.timeout_edit.setText(str(settings.job_timeout_sec))
-        mode = normalize_theme_mode(settings.theme_mode).value
-        idx = self.theme_combo.findData(mode)
+        mode = normalize_flash_mode(settings.flash_mode).value
+        flash_idx = self.flash_mode_combo.findData(mode)
+        self.flash_mode_combo.setCurrentIndex(flash_idx if flash_idx >= 0 else 0)
+        theme = normalize_theme_mode(settings.theme_mode).value
+        idx = self.theme_combo.findData(theme)
         self.theme_combo.setCurrentIndex(idx if idx >= 0 else 0)
 
     def to_settings(self, base: AppSettings) -> AppSettings:
@@ -98,6 +124,9 @@ class SettingsDialog(QDialog):
         theme = self.theme_combo.currentData()
         if not isinstance(theme, str):
             theme = ThemeMode.SYSTEM.value
+        flash = self.flash_mode_combo.currentData()
+        if not isinstance(flash, str):
+            flash = FlashMode.AUTO.value
         return AppSettings(
             openocd_path=self.openocd_edit.text().strip(),
             last_firmware_path=base.last_firmware_path,
@@ -107,6 +136,7 @@ class SettingsDialog(QDialog):
             bin_base_address=base.bin_base_address,
             job_timeout_sec=timeout,
             theme_mode=normalize_theme_mode(theme).value,
+            flash_mode=normalize_flash_mode(flash).value,
         )
 
     @staticmethod

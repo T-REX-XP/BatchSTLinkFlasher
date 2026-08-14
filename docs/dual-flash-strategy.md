@@ -211,6 +211,15 @@ Identify LED reuses the same disable/enable APIs to blink the COM LED
 the whole batch stays in the parallel path (faster, no elevation, no Device
 Manager flicker).
 
+**Settings → Flash mode**
+
+| Mode | Behavior |
+|------|----------|
+| **Auto** (default) | Dual strategy above |
+| **Always sequential** | One adapter at a time (HLA still uses `hla_serial`; clones still isolate). Useful for quieter USB buses / debugging. |
+
+Force-parallel for unbound clones is **not** offered (see requirements non-goals).
+
 ---
 
 ## 8. Failure modes

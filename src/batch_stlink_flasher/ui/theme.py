@@ -206,6 +206,10 @@ def app_stylesheet(palette: ThemePalette | None = None) -> str:
         background-color: transparent;
         color: {p.text};
     }}
+    QLabel#mutedLabel {{
+        color: {p.text_muted};
+        font-size: 12px;
+    }}
     QMenuBar {{
         background-color: {p.bg_elevated};
         color: {p.text};

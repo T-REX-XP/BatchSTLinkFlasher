@@ -13,6 +13,7 @@
 │  - enumerate ST-Links       │   │  - HLA parallel       │
 │  - map to AdapterInfo       │   │  - clone sequential   │
 │  - usb_path / HLA flags     │   │  - USB isolation      │
+│                             │   │  - always-seq option  │
 └───────────────┬─────────────┘   └───────────┬───────────┘
                 │                             │
                 │                  ┌──────────▼──────────┐
@@ -156,4 +157,4 @@ Open **Edit → Settings…** (or the toolbar **Settings** button) for tool pref
 
 - Alternate backends (`st-flash`) behind a `ProgrammerBackend` protocol
 - Per-device firmware mapping
-- Optional “always sequential” operator override (HLA included)
+- Force-parallel for clones (unsafe; remains a non-goal)

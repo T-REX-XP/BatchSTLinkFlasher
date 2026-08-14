@@ -128,6 +128,40 @@ def test_orchestrator_mixed_hla_and_clone_sequential(
     assert r"USB\VID_0483&PID_3748\GOOD" in enabled
 
 
+def test_orchestrator_force_sequential_hla(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """force_sequential runs HLA jobs one-at-a-time (no sibling disable for HLA)."""
+    started: list[str] = []
+    lock = threading.Lock()
+    active = 0
+    max_active = 0
+
+    def _run(self: object) -> FlashJobResult:
+        from batch_stlink_flasher.flashing.job import FlashJob
+
+        assert isinstance(self, FlashJob)
+        nonlocal active, max_active
+        with lock:
+            active += 1
+            max_active = max(max_active, active)
+            started.append(self.adapter.serial)
+        time.sleep(0.05)
+        with lock:
+            active -= 1
+        self._state = JobState.SUCCEEDED  # noqa: SLF001
+        return FlashJobResult(state=JobState.SUCCEEDED, exit_code=0, elapsed_sec=0.05)
+
+    monkeypatch.setattr("batch_stlink_flasher.flashing.job.FlashJob.run", _run)
+    adapters = [_adapter("A"), _adapter("B")]
+    summary = FlashOrchestrator(
+        adapters, _config(tmp_path), force_sequential=True
+    ).run()
+    assert summary.succeeded == 2
+    assert max_active == 1
+    assert started == ["A", "B"]
+
+
 def test_orchestrator_clone_isolation_failure(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:

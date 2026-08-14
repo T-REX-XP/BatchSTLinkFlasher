@@ -39,13 +39,24 @@ def test_settings_roundtrip(qapp: QApplication, tmp_path, monkeypatch) -> None:
         scripts_search_path=str(tmp_path),
         bin_base_address="0x08000000",
         job_timeout_sec=90.0,
+        flash_mode="sequential",
     )
     save_settings(settings)
     loaded = load_settings()
     assert loaded.target_cfg == "target/stm32f4x.cfg"
     assert loaded.job_timeout_sec == 90.0
     assert loaded.theme_mode in {"system", "light", "dark"}
+    assert loaded.flash_mode == "sequential"
 
+
+def test_normalize_flash_mode() -> None:
+    from batch_stlink_flasher.services.settings import FlashMode, normalize_flash_mode
+
+    assert normalize_flash_mode("auto") is FlashMode.AUTO
+    assert normalize_flash_mode("SEQUENTIAL") is FlashMode.SEQUENTIAL
+    assert normalize_flash_mode("seq") is FlashMode.SEQUENTIAL
+    assert normalize_flash_mode(None) is FlashMode.AUTO
+    assert normalize_flash_mode("nope") is FlashMode.AUTO
 
 def test_device_table_selection(qapp: QApplication) -> None:
     table = DeviceTable()
@@ -126,12 +137,14 @@ def test_settings_dialog_roundtrip(qapp: QApplication, tmp_path) -> None:
     dialog.scripts_edit.setText(str(tmp_path))
     dialog.timeout_edit.setText("not-a-number")
     dialog.theme_combo.setCurrentIndex(dialog.theme_combo.findData("light"))
+    dialog.flash_mode_combo.setCurrentIndex(dialog.flash_mode_combo.findData("sequential"))
     out = dialog.to_settings(base)
     assert out.last_firmware_path == "keep.elf"
     assert out.target_cfg == "target/stm32f1x.cfg"
     assert out.interface_cfg == "interface/stlink-v2.cfg"
     assert out.job_timeout_sec == 120.0
     assert out.theme_mode == "light"
+    assert out.flash_mode == "sequential"
     dialog.close()
 
 

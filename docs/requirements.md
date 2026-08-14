@@ -69,6 +69,7 @@ Desktop application that flashes **the same firmware file** onto **1–N STM32 (
 | FR-FLASH-07 | Do not start a new global flash while any flash is Running (or allow only if no overlap on same serial — v1: block) | Must |
 | FR-FLASH-08 | After each device finishes, release its ports/process cleanly | Must |
 | FR-FLASH-09 | Closing the app while a flash is Running shows a confirmation; Yes cancels jobs and quits, No keeps the window open | Must |
+| FR-FLASH-10 | Settings: flash mode **Auto** (HLA parallel + clone sequential) or **Always sequential**; force-parallel for clones remains a non-goal | Should |
 
 ### 4.4 Progress, logs, errors
 
