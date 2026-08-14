@@ -26,9 +26,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- Transparent About/splash logo (chip only); Windows ``app_icon`` keeps Fluent dark plate
+- List both ST-Link clones when Windows assigns a generated instance id (``5&…``) because they share serial ``%``
+- Splash→main handoff: show main before closing splash; avoid quit-on-last-window-closed race
+- Frozen EXE ignored visible UI when ``QT_QPA_PLATFORM=offscreen`` was inherited from a test shell; clear it when frozen
 - Taskbar / Alt+Tab showed the Python host icon when running from source; set Windows AppUserModelID + window icon early
 - ST-Link discovery: use Config Manager presence (``DN_STARTED``) instead of unreliable ``Control`` registry key
-- Close splash before showing the main window
 - Root-cause: ST-Link discovery no longer spawns PowerShell (registry PnP); hides leftover console tools
 - Hide PowerShell / console flash during Windows ST-Link discovery and OpenOCD jobs
 
