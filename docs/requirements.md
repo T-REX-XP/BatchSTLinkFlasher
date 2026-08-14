@@ -104,7 +104,7 @@ Desktop application that flashes **the same firmware file** onto **1–N STM32 (
 | Language | **Python 3.11+** | Fast to iterate; excellent subprocess orchestration; AI-friendly |
 | UI | **PySide6 (Qt)** | Mature desktop UX; signals/slots for device/job updates |
 | Programmer | **OpenOCD** (external) | Existing ST-Link support; multi-adapter via serial + unique ports |
-| Device enum | Prefer **`st-info --probe`** if available; fallback **pyusb** (VID `0x0483`) | Serial strings needed for OpenOCD |
+| Device enum | **Windows PnP registry** first; then ``st-info --probe``; then **pyusb** (VID `0x0483`) | Serial strings needed for OpenOCD; PnP avoids spawning consoles |
 | Packaging (later) | PyInstaller or similar | Single-folder Windows distribute |
 
 Do **not** change stack without updating `docs/architecture.md` and this section.

@@ -7,7 +7,7 @@
 
 #define MyAppName "Batch ST-Link Flasher"
 #define MyAppId "BatchSTLinkFlasher"
-#define MyAppVersion "0.1.0.3"
+#define MyAppVersion "0.1.0.4"
 #define MyAppPublisher "BatchSTLinkFlasher"
 #define MyAppExeName "BatchSTLinkFlasher.exe"
 

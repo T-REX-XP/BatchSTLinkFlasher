@@ -60,11 +60,23 @@ def list_adapters(
     Discover connected ST-Link adapters.
 
     Order:
-    1. ``st-info --probe`` when available
-    2. Windows PnP (official ST driver; no libusb)
+    1. Windows PnP registry (no console; works with official ST driver)
+    2. ``st-info --probe`` when available
     3. pyusb (requires a libusb backend)
     """
     errors: list[str] = []
+
+    if allow_windows_pnp and sys.platform == "win32":
+        try:
+            adapters = list_adapters_windows_pnp()
+            if adapters:
+                logger.info("Windows PnP discovered %d adapter(s)", len(adapters))
+                return adapters
+            errors.append("Windows PnP found no ST-Link devices")
+        except Exception as exc:  # noqa: BLE001
+            msg = f"Windows PnP failed: {exc}"
+            logger.warning(msg)
+            errors.append(msg)
 
     if prefer_stinfo:
         path = _resolve_stinfo(stinfo_path)
@@ -84,18 +96,6 @@ def list_adapters(
             errors.append("st-info not found on PATH")
             if not allow_pyusb_fallback and not allow_windows_pnp:
                 raise DeviceDiscoveryError("st-info not found on PATH")
-
-    if allow_windows_pnp and sys.platform == "win32":
-        try:
-            adapters = list_adapters_windows_pnp()
-            if adapters:
-                logger.info("Windows PnP discovered %d adapter(s)", len(adapters))
-                return adapters
-            errors.append("Windows PnP found no ST-Link devices")
-        except Exception as exc:  # noqa: BLE001
-            msg = f"Windows PnP failed: {exc}"
-            logger.warning(msg)
-            errors.append(msg)
 
     if allow_pyusb_fallback:
         adapters = list_adapters_pyusb()

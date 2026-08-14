@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from pathlib import Path
-from types import SimpleNamespace
 
 import pytest
 
@@ -56,18 +55,32 @@ def test_list_adapters_windows_pnp_real_serial(monkeypatch: pytest.MonkeyPatch) 
     assert adapters[0].hla_serial
 
 
-def test_windows_pnp_query(monkeypatch: pytest.MonkeyPatch) -> None:
-    completed = SimpleNamespace(returncode=0, stdout='{"Name":"X","DeviceID":"USB\\\\VID_0483&PID_3748\\\\ABC"}', stderr="")
-    monkeypatch.setattr(windows_pnp.subprocess, "run", lambda *a, **k: completed)
+def test_windows_pnp_registry_enum(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(windows_pnp.sys, "platform", "win32")
-    raw = windows_pnp._query_pnp_json()  # noqa: SLF001
-    assert "VID_0483" in raw
+    monkeypatch.setattr(
+        windows_pnp,
+        "_enumerate_stlink_registry",
+        lambda: [
+            {
+                "Name": "X",
+                "Manufacturer": "ST",
+                "DeviceID": r"USB\VID_0483&PID_3748\ABC",
+            }
+        ],
+    )
+    devices = windows_pnp.list_stlink_pnp_devices()
+    assert len(devices) == 1
+    assert devices[0].usb_serial == "ABC"
 
 
-def test_windows_pnp_query_failure(monkeypatch: pytest.MonkeyPatch) -> None:
-    completed = SimpleNamespace(returncode=1, stdout="", stderr="err")
-    monkeypatch.setattr(windows_pnp.subprocess, "run", lambda *a, **k: completed)
-    assert windows_pnp._query_pnp_json() == ""  # noqa: SLF001
+def test_windows_pnp_registry_failure(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(windows_pnp.sys, "platform", "win32")
+
+    def _boom() -> list:
+        raise OSError("nope")
+
+    monkeypatch.setattr(windows_pnp, "_enumerate_stlink_registry", _boom)
+    assert windows_pnp.list_stlink_pnp_devices() == []
 
 
 def test_list_adapters_pyusb_success(monkeypatch: pytest.MonkeyPatch) -> None:

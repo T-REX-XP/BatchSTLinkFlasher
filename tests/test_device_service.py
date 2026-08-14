@@ -65,21 +65,26 @@ def test_list_adapters_uses_stinfo_when_available(monkeypatch: pytest.MonkeyPatc
         lambda *_a, **_k: stdout,
     )
 
-    called = {"pyusb": False, "pnp": False}
+    called = {"pyusb": False}
 
     monkeypatch.setattr(
         "batch_stlink_flasher.services.device_service.list_adapters_pyusb",
         lambda: called.__setitem__("pyusb", True) or [],
     )
+
+    # PnP first; empty so we fall through to st-info.
     monkeypatch.setattr(
         "batch_stlink_flasher.services.device_service.list_adapters_windows_pnp",
-        lambda: called.__setitem__("pnp", True) or [],
+        lambda: [],
+    )
+    monkeypatch.setattr(
+        "batch_stlink_flasher.services.device_service.sys.platform",
+        "win32",
     )
 
     adapters = list_adapters()
     assert len(adapters) == 1
     assert called["pyusb"] is False
-    assert called["pnp"] is False
 
 
 def test_list_adapters_uses_windows_pnp_before_pyusb(monkeypatch: pytest.MonkeyPatch) -> None:

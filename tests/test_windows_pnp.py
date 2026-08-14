@@ -48,3 +48,78 @@ def test_list_adapters_windows_pnp_maps_placeholder(monkeypatch) -> None:
     assert adapters[0].hla_serial == ""
     assert adapters[0].multi_adapter_ok is False
     assert adapters[0].skip_reason
+
+
+def test_clean_reg_string() -> None:
+    from batch_stlink_flasher.services import windows_pnp
+
+    assert windows_pnp._clean_reg_string("@oem12.inf,%desc%;STM32 STLink") == "STM32 STLink"  # noqa: SLF001
+    assert windows_pnp._clean_reg_string("plain") == "plain"
+
+
+def test_enumerate_stlink_registry(monkeypatch) -> None:
+    """Simulate HKLM USB enum tree with one present ST-Link."""
+    from batch_stlink_flasher.services import windows_pnp
+
+    class FakeKey:
+        def __init__(self, children=None, values=None, present=False):
+            self.children = children or []
+            self.values = values or {}
+            self.present = present
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            return False
+
+    tree = {
+        windows_pnp._USB_ENUM_ROOT: FakeKey(children=["VID_0483&PID_3748", "VID_1234&PID_0001"]),
+        rf"{windows_pnp._USB_ENUM_ROOT}\VID_0483&PID_3748": FakeKey(children=["66FF55", "OLD"]),
+        rf"{windows_pnp._USB_ENUM_ROOT}\VID_0483&PID_3748\66FF55": FakeKey(
+            values={
+                "FriendlyName": "STM32 STLink",
+                "Mfg": "@oem.inf,%mfg%;STMicroelectronics",
+                "DeviceDesc": "desc;STM32 STLink",
+            },
+            present=True,
+        ),
+        rf"{windows_pnp._USB_ENUM_ROOT}\VID_0483&PID_3748\66FF55\Control": FakeKey(),
+        rf"{windows_pnp._USB_ENUM_ROOT}\VID_0483&PID_3748\OLD": FakeKey(present=False),
+        rf"{windows_pnp._USB_ENUM_ROOT}\VID_1234&PID_0001": FakeKey(children=[]),
+    }
+
+    def open_key(_hive, path):
+        if path not in tree:
+            raise OSError("missing")
+        # Opening ...\Control is presence check
+        return tree[path]
+
+    def enum_key(key, index):
+        if index >= len(key.children):
+            raise OSError("done")
+        return key.children[index]
+
+    def query_value(key, name):
+        if name not in key.values:
+            raise OSError("missing value")
+        return key.values[name], 1
+
+    monkeypatch.setattr(windows_pnp.winreg, "OpenKey", open_key)
+    monkeypatch.setattr(windows_pnp.winreg, "EnumKey", enum_key)
+    monkeypatch.setattr(windows_pnp.winreg, "QueryValueEx", query_value)
+
+    rows = windows_pnp._enumerate_stlink_registry()  # noqa: SLF001
+    assert len(rows) == 1
+    assert rows[0]["DeviceID"].endswith(r"\66FF55")
+    assert rows[0]["Name"] == "STM32 STLink"
+    assert rows[0]["Manufacturer"] == "STMicroelectronics"
+
+
+def test_hidden_subprocess_kwargs_has_startupinfo(monkeypatch) -> None:
+    from batch_stlink_flasher.util import win_process
+
+    monkeypatch.setattr(win_process.sys, "platform", "win32")
+    kwargs = win_process.hidden_subprocess_kwargs()
+    assert "startupinfo" in kwargs
+    assert kwargs["startupinfo"].dwFlags & win_process.subprocess.STARTF_USESHOWWINDOW

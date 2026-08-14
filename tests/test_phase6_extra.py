@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 import subprocess
 from pathlib import Path
 from unittest.mock import MagicMock
@@ -35,17 +34,16 @@ def test_configure_logging_twice() -> None:
 
 
 def test_windows_pnp_json_list(monkeypatch: pytest.MonkeyPatch) -> None:
-    payload = [
-        {
-            "Name": "STM32 STLink",
-            "Manufacturer": "ST",
-            "DeviceID": r"USB\VID_0483&PID_3748\ABCDEF",
-        }
-    ]
     monkeypatch.setattr(
         windows_pnp,
-        "_query_pnp_json",
-        lambda: json.dumps(payload),
+        "_enumerate_stlink_registry",
+        lambda: [
+            {
+                "Name": "STM32 STLink",
+                "Manufacturer": "ST",
+                "DeviceID": r"USB\VID_0483&PID_3748\ABCDEF",
+            }
+        ],
     )
     monkeypatch.setattr(windows_pnp.sys, "platform", "win32")
     devices = windows_pnp.list_stlink_pnp_devices()

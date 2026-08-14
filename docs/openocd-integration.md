@@ -82,9 +82,11 @@ openocd -d3 -f interface/stlink.cfg -f target/stm32f1x.cfg -c "hla_serial wrong_
 
 Search log for `Device serial number '…' doesn't match`.
 
-### Fallback: Windows PnP (recommended on Windows without st-info)
+### Fallback: Windows PnP (recommended on Windows)
 
-The app enumerates `Win32_PnPEntity` instance IDs like
+The app reads present ST devices from the USB device registry
+(`HKLM\SYSTEM\CurrentControlSet\Enum\USB\VID_0483...`) — **no PowerShell /
+console process**. Instance IDs look like:
 `USB\VID_0483&PID_3748\<serial>` using the **official ST driver**.
 No libusb / Zadig change is required for discovery.
 
