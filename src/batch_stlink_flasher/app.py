@@ -2,15 +2,26 @@
 
 from __future__ import annotations
 
+import sys
+
+from batch_stlink_flasher import __version__
+
 
 def run() -> int:
     """
     Start the Qt application.
 
-    Implementation belongs to Phase 5 (see docs/plan.md).
-    Until then this is an intentional stub so the package imports cleanly.
+    UI lands in Phase 5 (see docs/plan.md). Until then, print status and exit.
     """
-    raise NotImplementedError(
-        "UI not implemented yet. Follow docs/plan.md starting at Phase 1. "
-        "See docs/requirements.md for the product contract."
+    print(
+        f"Batch ST-Link Flasher {__version__}\n"
+        "\n"
+        "Desktop UI is not implemented yet (Phase 5).\n"
+        "What works now:\n"
+        "  pytest\n"
+        "  python -m batch_stlink_flasher.discover   # list ST-Links\n"
+        "\n"
+        "Next: Phase 3 (single-device flash job) - see docs/plan.md\n",
+        file=sys.stderr,
     )
+    return 2

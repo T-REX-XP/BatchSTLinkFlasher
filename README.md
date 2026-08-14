@@ -4,7 +4,16 @@ Desktop app to flash the **same firmware** onto **multiple STM32 targets in para
 
 ## Status
 
-Documentation and repository skeleton are in place. Application implementation follows `docs/plan.md` (Phases 1–6).
+| Phase | Status |
+|-------|--------|
+| 0 Docs + skeleton | Done |
+| 1 Models + OpenOCD argv | Done |
+| 2 Device discovery | Done (`discover` CLI) |
+| 3–4 Flash jobs | Not started |
+| 5 Desktop UI | Not started |
+| 6 Polish | Not started |
+
+See `docs/plan.md`.
 
 ## Docs
 
@@ -21,11 +30,11 @@ Documentation and repository skeleton are in place. Application implementation f
 
 - Windows 10/11 (primary)
 - Python 3.11+
-- [OpenOCD](https://openocd.org/) on `PATH` (or configure path in the app later)
+- [OpenOCD](https://openocd.org/) on `PATH` (needed from Phase 3 onward)
 - Optional: [stlink](https://github.com/stlink-org/stlink) (`st-info`) for probe listing
 - One or more ST-Link V2 / V2-1 programmers with targets powered and wired
 
-## Setup (when code lands)
+## Setup
 
 ```bash
 cd BatchSTLinkFlasher
@@ -33,9 +42,10 @@ python -m venv .venv
 .venv\Scripts\activate
 pip install -e ".[dev]"
 pytest
-python -m batch_stlink_flasher.discover   # list ST-Links (Phase 2)
-python -m batch_stlink_flasher            # UI (Phase 5)
+python -m batch_stlink_flasher.discover   # list ST-Links (works now)
 ```
+
+`python -m batch_stlink_flasher` launches the UI — that arrives in **Phase 5**.
 
 ## Operator flow (target UX)
 
