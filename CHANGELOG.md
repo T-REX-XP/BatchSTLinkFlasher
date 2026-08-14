@@ -26,6 +26,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- Taskbar / Alt+Tab showed the Python host icon when running from source; set Windows AppUserModelID + window icon early
 - ST-Link discovery: use Config Manager presence (``DN_STARTED``) instead of unreliable ``Control`` registry key
 - Close splash before showing the main window
 - Root-cause: ST-Link discovery no longer spawns PowerShell (registry PnP); hides leftover console tools
@@ -33,6 +34,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
+- Removed deprecated script aliases (`bootstrap`, `build_windows`, `build_full_installer`); use the 3-step pipeline in `scripts/README.md`
 - Packaging scripts split into 3 steps: `install_build_deps` → `build_app` → `build_installer` (see `scripts/README.md`)
 - Packaging docs: OpenOCD is bundled by the full installer; operators do not need system Python
 

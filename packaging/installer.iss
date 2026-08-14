@@ -1,13 +1,14 @@
 ; Inno Setup script for Batch ST-Link Flasher
 ; Requires: Inno Setup 6+ (https://jrsoftware.org/isinfo.php)
 ; Build flow:
-;   1) powershell -File scripts\build_windows.ps1
+;   1) powershell -File scripts\build_app.ps1
 ;   2) powershell -File scripts\build_installer.ps1
-;      (or compile this .iss in Inno Setup Compiler)
+;
+; Or: powershell -File scripts\build_all.ps1 -ZipPortable
 
 #define MyAppName "Batch ST-Link Flasher"
 #define MyAppId "BatchSTLinkFlasher"
-#define MyAppVersion "0.1.0.4"
+#define MyAppVersion "0.1.0.5"
 #define MyAppPublisher "BatchSTLinkFlasher"
 #define MyAppExeName "BatchSTLinkFlasher.exe"
 
@@ -38,8 +39,7 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 Name: "desktopicon"; Description: "Create a &desktop shortcut"; GroupDescription: "Additional icons:"; Flags: unchecked
 
 [Files]
-; PyInstaller onedir payload produced by scripts\build_windows.ps1 / build_full_installer.ps1
-; Includes tools\openocd when built with scripts\build_full_installer.ps1
+; PyInstaller onedir from scripts\build_app.ps1 (+ OpenOCD from build_installer.ps1)
 Source: "..\dist\BatchSTLinkFlasher\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "..\scripts\uninstall.ps1"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\README.md"; DestDir: "{app}"; Flags: ignoreversion
@@ -47,9 +47,9 @@ Source: "..\docs\openocd-integration.md"; DestDir: "{app}\docs"; Flags: ignoreve
 Source: "..\docs\packaging.md"; DestDir: "{app}\docs"; Flags: ignoreversion
 
 [Icons]
-Name: "{group}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; WorkingDir: "{app}"
+Name: "{group}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; WorkingDir: "{app}"; IconFilename: "{app}\{#MyAppExeName}"
 Name: "{group}\Uninstall {#MyAppName}"; Filename: "{uninstallexe}"
-Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; WorkingDir: "{app}"; Tasks: desktopicon
+Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; WorkingDir: "{app}"; IconFilename: "{app}\{#MyAppExeName}"; Tasks: desktopicon
 
 [Run]
 Filename: "{app}\{#MyAppExeName}"; Description: "Launch {#MyAppName}"; Flags: nowait postinstall skipifsilent

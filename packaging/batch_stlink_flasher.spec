@@ -1,6 +1,6 @@
 # -*- mode: python ; coding: utf-8 -*-
 # PyInstaller spec for Windows onedir build.
-# Prefer: powershell -File scripts/build_windows.ps1
+# Prefer: powershell -File scripts/build_app.ps1
 
 block_cipher = None
 

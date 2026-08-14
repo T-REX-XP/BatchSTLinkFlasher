@@ -13,7 +13,7 @@ from PySide6.QtWidgets import (
 
 from batch_stlink_flasher import __version__, __version_info__
 from batch_stlink_flasher.flashing.models import AdapterInfo
-from batch_stlink_flasher.ui.theme import load_logo_pixmap, splash_stylesheet
+from batch_stlink_flasher.ui.theme import load_app_icon, load_logo_pixmap, splash_stylesheet
 from batch_stlink_flasher.ui.workers import DiscoveryWorker
 
 
@@ -30,6 +30,9 @@ class SplashScreen(QWidget):
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
         self.setWindowTitle(f"Batch ST-Link Flasher {__version__}")
+        icon = load_app_icon()
+        if not icon.isNull():
+            self.setWindowIcon(icon)
         self.setWindowFlags(
             Qt.WindowType.FramelessWindowHint
             | Qt.WindowType.WindowStaysOnTopHint

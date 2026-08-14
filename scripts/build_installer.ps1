@@ -1,44 +1,29 @@
 #Requires -Version 5.1
 <#
 .SYNOPSIS
-  Step 3/3 - Build the Windows installer that embeds the app (+ OpenOCD).
+  Step 3/3 - Bundle OpenOCD and build Setup.exe / portable zip.
 
 .DESCRIPTION
-  Takes an existing dist\BatchSTLinkFlasher\ payload (from build_app.ps1) and:
-
-  1. Bundles OpenOCD from vendor\runtime\openocd into tools\openocd
-  2. Writes bundled-tools.json / build-info.json
-  3. Optionally creates a portable zip
-  4. Compiles Setup.exe with Inno Setup when ISCC is available
-
-  Does not rebuild the PyInstaller app unless -BuildApp is passed.
-
-.PARAMETER BuildApp
-  Run build_app.ps1 first.
-
-.PARAMETER NoBump
-  Passed to build_app.ps1 when -BuildApp is used.
-
-.PARAMETER SkipOpenOcd
-  Do not copy OpenOCD into the payload (not recommended for operator installs).
-
-.PARAMETER FetchOpenOcd
-  Run fetch_runtime_deps.ps1 before bundling.
+  Packages dist\BatchSTLinkFlasher\ (from build_app.ps1):
+  - Copies OpenOCD from vendor\runtime\openocd
+  - Writes bundled-tools.json
+  - Optional portable zip (-ZipPortable)
+  - Optional Inno Setup.exe (skipped if ISCC missing, or with -SkipInno)
 
 .PARAMETER ZipPortable
   Create dist\BatchSTLinkFlasher-<version>-portable.zip
 
 .PARAMETER SkipInno
   Do not compile Setup.exe.
+
+.PARAMETER SkipOpenOcd
+  Do not bundle OpenOCD (not recommended).
 #>
 [CmdletBinding()]
 param(
-    [switch]$BuildApp,
-    [switch]$NoBump,
-    [switch]$SkipOpenOcd,
-    [switch]$FetchOpenOcd,
     [switch]$ZipPortable,
-    [switch]$SkipInno
+    [switch]$SkipInno,
+    [switch]$SkipOpenOcd
 )
 
 $ErrorActionPreference = "Stop"
@@ -66,20 +51,10 @@ function Find-ISCC {
     return $null
 }
 
-Write-Host "==> Step 3/3: build EXE installer" -ForegroundColor Cyan
-
-if ($BuildApp) {
-    $args = @()
-    if ($NoBump) { $args += "-NoBump" }
-    & (Join-Path $PSScriptRoot "build_app.ps1") @args
-}
+Write-Host "==> Step 3/3: build installer" -ForegroundColor Cyan
 
 if (-not (Test-Path (Join-Path $DistApp "BatchSTLinkFlasher.exe"))) {
-    throw "Missing dist payload at $DistApp. Run scripts\build_app.ps1 first (or pass -BuildApp)."
-}
-
-if ($FetchOpenOcd) {
-    & (Join-Path $PSScriptRoot "fetch_runtime_deps.ps1")
+    throw "Missing dist payload at $DistApp. Run scripts\build_app.ps1 first."
 }
 
 $ver = Read-ProjectVersion
@@ -88,7 +63,11 @@ Write-Host ("==> Packaging version {0}" -f $Version)
 
 if (-not $SkipOpenOcd) {
     if (-not (Test-Path (Join-Path $VendorOpenOcd "bin\openocd.exe"))) {
-        throw "OpenOCD not staged at $VendorOpenOcd. Run scripts\install_build_deps.ps1 or scripts\fetch_runtime_deps.ps1 (or pass -FetchOpenOcd)."
+        Write-Host "==> OpenOCD not cached; fetching..."
+        & (Join-Path $PSScriptRoot "fetch_runtime_deps.ps1")
+    }
+    if (-not (Test-Path (Join-Path $VendorOpenOcd "bin\openocd.exe"))) {
+        throw "OpenOCD not staged at $VendorOpenOcd. Run scripts\fetch_runtime_deps.ps1."
     }
     Write-Host "==> Bundling OpenOCD into dist\tools\openocd"
     $toolsOpenOcd = Join-Path $DistApp "tools\openocd"
@@ -151,9 +130,7 @@ if (-not $SkipInno) {
 }
 
 Write-Host ""
-Write-Host "Installer artifacts:" -ForegroundColor Green
-Write-Host "  Version : $Version"
-Write-Host "  Onedir  : $DistApp"
-Write-Host "  Install : powershell -File scripts\install.ps1 -DesktopShortcut -Force"
-Write-Host "  Uninstall: powershell -File scripts\uninstall.ps1"
+Write-Host "Done. Artifacts under dist\" -ForegroundColor Green
+Write-Host "  Onedir : $DistApp"
+Write-Host "  Or run: powershell -File scripts\install.ps1 -DesktopShortcut -Force"
 Write-Host "See scripts\README.md"

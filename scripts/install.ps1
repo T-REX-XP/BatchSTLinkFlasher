@@ -1,20 +1,16 @@
 #Requires -Version 5.1
 <#
 .SYNOPSIS
-  Install Batch ST-Link Flasher from a built dist folder (or build first).
+  Install Batch ST-Link Flasher from a built dist folder.
 
 .DESCRIPTION
-  Copies the PyInstaller onedir payload into a stable location, creates Start Menu
-  (and optional Desktop) shortcuts, and registers an uninstaller for Add/Remove Programs.
+  Copies dist\BatchSTLinkFlasher into a stable location, creates shortcuts, and
+  registers Add/Remove Programs. Default: %LOCALAPPDATA%\Programs\BatchSTLinkFlasher
 
-  Default install is per-user (no admin):
-    %LOCALAPPDATA%\Programs\BatchSTLinkFlasher
-
-.PARAMETER Build
-  Run scripts\build_app.ps1 before installing.
+  Prefer Setup.exe from build_installer.ps1 when available.
 
 .PARAMETER SourceDir
-  Path to the BatchSTLinkFlasher onedir folder (default: dist\BatchSTLinkFlasher).
+  Path to the onedir folder (default: dist\BatchSTLinkFlasher).
 
 .PARAMETER AllUsers
   Install under Program Files (requires elevation).
@@ -27,7 +23,6 @@
 #>
 [CmdletBinding()]
 param(
-    [switch]$Build,
     [string]$SourceDir = "",
     [switch]$AllUsers,
     [switch]$DesktopShortcut,
@@ -119,16 +114,11 @@ function Register-UninstallEntry {
 
 Ensure-AdminIfNeeded
 
-if ($Build) {
-    Write-Host "==> Building distribution first"
-    & (Join-Path $PSScriptRoot "build_app.ps1")
-}
-
 if (-not $SourceDir) {
     $SourceDir = Join-Path $Root "dist\$AppId"
 }
 if (-not (Test-Path (Join-Path $SourceDir $ExeName))) {
-    throw "Missing $ExeName under '$SourceDir'. Run with -Build or scripts\build_app.ps1 first."
+    throw "Missing $ExeName under '$SourceDir'. Run scripts\build_app.ps1 (and preferably build_installer.ps1) first."
 }
 
 $Version = Resolve-InstallVersion -Source $SourceDir

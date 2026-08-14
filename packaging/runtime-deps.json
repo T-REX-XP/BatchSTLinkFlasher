@@ -10,6 +10,6 @@
   "notes": [
     "PyInstaller embeds the Python runtime inside BatchSTLinkFlasher.exe — operators do not need a system Python.",
     "ST-Link USB drivers remain optional; Windows PnP discovery works with the official ST driver if installed.",
-    "VC++ redistributable may be installed via winget when using build_full_installer.ps1 -InstallSystemDeps."
+    "VC++ redistributable may be installed via winget when using install_build_deps.ps1 -InstallSystemDeps."
   ]
 }

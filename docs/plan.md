@@ -64,7 +64,7 @@ Use this checklist in order. Check items off in PRs / commits. Update `CHANGELOG
 
 - [x] Log export (text / JSON)
 - [x] Better progress parsing (OpenOCD stage / % heuristics)
-- [x] Packaging notes / PyInstaller recipe (`docs/packaging.md`, `scripts/build_windows.ps1`)
+- [x] Packaging notes / PyInstaller recipe (`docs/packaging.md`, `scripts/build_app.ps1`)
 - [x] Tag version `0.1.0` in `CHANGELOG.md` / package metadata
 - [x] Build scripts to prepare dist
 - [x] GitHub Actions CI pipeline

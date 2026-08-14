@@ -7,19 +7,28 @@ import sys
 
 def run(argv: list[str] | None = None) -> int:
     """Start the Qt desktop application."""
+    # Before any HWND: otherwise taskbar/Alt+Tab keep the python.exe icon.
+    from batch_stlink_flasher.util.win_shell import set_app_user_model_id
+
+    set_app_user_model_id()
+
     from PySide6.QtCore import QTimer
     from PySide6.QtWidgets import QApplication
 
     from batch_stlink_flasher.services.settings import load_settings
     from batch_stlink_flasher.ui.main_window import MainWindow
     from batch_stlink_flasher.ui.splash_screen import SplashScreen
-    from batch_stlink_flasher.ui.theme import ThemeMode, apply_app_theme, normalize_theme_mode
+    from batch_stlink_flasher.ui.theme import ThemeMode, apply_app_theme, load_app_icon, normalize_theme_mode
 
     app = QApplication.instance()
     if app is None:
         app = QApplication(argv if argv is not None else sys.argv)
     app.setOrganizationName("BatchSTLinkFlasher")
     app.setApplicationName("BatchSTLinkFlasher")
+    app.setDesktopFileName("BatchSTLinkFlasher")
+    icon = load_app_icon()
+    if not icon.isNull():
+        app.setWindowIcon(icon)
 
     settings = load_settings()
     theme_mode = normalize_theme_mode(settings.theme_mode)
