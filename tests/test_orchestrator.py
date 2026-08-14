@@ -13,13 +13,20 @@ from batch_stlink_flasher.flashing.models import AdapterInfo, FlashConfig, JobSt
 from batch_stlink_flasher.flashing.orchestrator import FlashOrchestrator
 
 
-def _adapter(serial: str, *, ok: bool = True, hla: str | None = None) -> AdapterInfo:
+def _adapter(
+    serial: str,
+    *,
+    ok: bool = True,
+    hla: str | None = None,
+    usb_path: str | None = None,
+) -> AdapterInfo:
     return AdapterInfo(
         serial=serial,
         hla_serial=hla if hla is not None else (f'"{serial}"' if ok else ""),
         vid=0x0483,
         pid=0x3748,
         product="ST-Link",
+        usb_path=usb_path or (rf"USB\VID_0483&PID_3748\{serial}"),
         multi_adapter_ok=ok,
         skip_reason=None if ok else "placeholder",
     )
@@ -86,19 +93,65 @@ def test_orchestrator_runs_parallel_and_isolates_failure(
     assert sorted(done) == ["A:succeeded", "B:failed", "C:succeeded"]
 
 
-def test_orchestrator_prefails_unusable_serial_in_multi(
+def test_orchestrator_mixed_hla_and_clone_sequential(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    _patch_job_run(monkeypatch, {"GOOD": JobState.SUCCEEDED})
+    """HLA probes parallel; clones run sequentially with isolation."""
+    _patch_job_run(
+        monkeypatch,
+        {"GOOD": JobState.SUCCEEDED, "%": JobState.SUCCEEDED},
+    )
+    disabled: list[str] = []
+    enabled: list[str] = []
+
+    monkeypatch.setattr(
+        "batch_stlink_flasher.services.windows_device_control.disable_device",
+        lambda iid: disabled.append(iid) or True,
+    )
+    monkeypatch.setattr(
+        "batch_stlink_flasher.services.windows_device_control.enable_device",
+        lambda iid: enabled.append(iid) or True,
+    )
+    monkeypatch.setattr(
+        "batch_stlink_flasher.services.windows_device_control.sys",
+        type("S", (), {"platform": "win32"})(),
+    )
+
     adapters = [
-        _adapter("GOOD", ok=True),
-        _adapter("%", ok=False, hla=""),
+        _adapter("GOOD", ok=True, usb_path=r"USB\VID_0483&PID_3748\GOOD"),
+        _adapter("%", ok=False, hla="", usb_path=r"USB\VID_0483&PID_3748\%"),
     ]
     summary = FlashOrchestrator(adapters, _config(tmp_path)).run()
-    assert summary.succeeded == 1
-    assert summary.failed == 1
-    bad = next(r for r in summary.results if r.adapter.serial == "%")
-    assert "usable HLA serial" in (bad.result.error_summary or "")
+    assert summary.succeeded == 2
+    assert summary.failed == 0
+    assert r"USB\VID_0483&PID_3748\GOOD" in disabled
+    assert r"USB\VID_0483&PID_3748\GOOD" in enabled
+
+
+def test_orchestrator_clone_isolation_failure(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    _patch_job_run(monkeypatch, {"%": JobState.SUCCEEDED})
+    monkeypatch.setattr(
+        "batch_stlink_flasher.services.windows_device_control.disable_device",
+        lambda _iid: False,
+    )
+    monkeypatch.setattr(
+        "batch_stlink_flasher.services.windows_device_control.sys",
+        type("S", (), {"platform": "win32"})(),
+    )
+    adapters = [
+        _adapter("%", ok=False, hla="", usb_path=r"USB\VID_0483&PID_3748\%"),
+        _adapter(
+            "5&abc&0&1",
+            ok=False,
+            hla="",
+            usb_path=r"USB\VID_0483&PID_3748\5&abc&0&1",
+        ),
+    ]
+    summary = FlashOrchestrator(adapters, _config(tmp_path)).run()
+    assert summary.failed >= 1
+    assert any("disable" in (r.result.error_summary or "").lower() for r in summary.results)
 
 
 def test_orchestrator_cancel_all(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
@@ -119,9 +172,23 @@ def test_orchestrator_cancel_all(monkeypatch: pytest.MonkeyPatch, tmp_path: Path
     assert summary.cancelled >= 1
 
 
-def test_orchestrator_rejects_empty(tmp_path: Path) -> None:
-    with pytest.raises(ValueError):
-        FlashOrchestrator([], _config(tmp_path))
+def test_orchestrator_clone_missing_usb_path(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    _patch_job_run(monkeypatch, {})
+    adapters = [
+        AdapterInfo(
+            serial="%",
+            hla_serial="",
+            vid=0x0483,
+            pid=0x3748,
+            usb_path=None,
+            multi_adapter_ok=False,
+        )
+    ]
+    summary = FlashOrchestrator(adapters, _config(tmp_path)).run()
+    assert summary.failed == 1
+    assert "instance id" in (summary.results[0].result.error_summary or "").lower()
 
 
 def test_orchestrator_rejects_concurrent_run(

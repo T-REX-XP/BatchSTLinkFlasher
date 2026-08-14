@@ -25,7 +25,9 @@ Desktop application that flashes **the same firmware file** onto **1–N STM32 (
 
 **Assumptions**
 
-- Each programmer has a unique USB serial (HLA serial) usable by OpenOCD (`hla_serial` / `adapter serial`).
+- Prefer programmers with a unique USB serial (HLA) for true parallel flashing.
+- Clone ST-Links without unique serials are supported via sequential flash with
+  Windows USB isolation (see `docs/openocd-integration.md`).
 - Operator knows (or selects) the correct OpenOCD interface + target/board scripts for the product under test.
 - Firmware is a single file: `.elf`, `.hex`, or `.bin` (with base address when `.bin`).
 
@@ -59,7 +61,7 @@ Desktop application that flashes **the same firmware file** onto **1–N STM32 (
 |----|-------------|----------|
 | FR-FLASH-01 | Start flash on all selected devices in parallel (one OpenOCD process per device) | Must |
 | FR-FLASH-02 | Assign unique OpenOCD TCP ports per process (`gdb_port`, `telnet_port`, `tcl_port`) to avoid collisions | Must |
-| FR-FLASH-03 | Bind each process to exactly one adapter via serial (`hla_serial` or equivalent) | Must |
+| FR-FLASH-03 | Bind each HLA-capable process to one adapter via ``hla_serial``; for clones without unique serial, flash sequentially while isolating sibling USB devices | Must |
 | FR-FLASH-04 | Per-device states: Idle → Queued → Running → Succeeded \| Failed \| Cancelled | Must |
 | FR-FLASH-05 | Cancel all in-progress flashes | Must |
 | FR-FLASH-06 | Cancel a single device’s flash | Should |

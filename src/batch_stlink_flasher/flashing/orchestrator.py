@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import threading
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 
 from batch_stlink_flasher.flashing.job import FlashJob, FlashJobResult, LineCallback
@@ -49,11 +49,20 @@ class OrchestratorSummary:
         return self.total > 0 and self.succeeded == self.total
 
 
+def can_bind_hla(adapter: AdapterInfo) -> bool:
+    """True when OpenOCD can pin this probe with ``hla_serial`` (genuine / unique)."""
+    return bool(adapter.multi_adapter_ok and (adapter.hla_serial or "").strip())
+
+
 class FlashOrchestrator:
     """
-    Flash N adapters in parallel (one OpenOCD process / unique ports each).
+    Flash N adapters with a dual strategy:
 
-    One job failing or being cancelled does not abort siblings.
+    * **HLA-bound** (unique serial): all in parallel, each with ``hla_serial``.
+    * **Unbound** (clone placeholder serial): one-at-a-time, temporarily
+      disabling sibling ST-Link USB nodes so OpenOCD attaches to only that probe.
+
+    HLA jobs run first (parallel), then unbound jobs (sequential + isolation).
     """
 
     def __init__(
@@ -63,6 +72,7 @@ class FlashOrchestrator:
         *,
         on_line: JobLineCallback | None = None,
         on_job_done: JobDoneCallback | None = None,
+        known_adapters: Sequence[AdapterInfo] | None = None,
     ) -> None:
         if not adapters:
             raise ValueError("adapters must not be empty")
@@ -70,11 +80,14 @@ class FlashOrchestrator:
         self.config = config
         self.on_line = on_line
         self.on_job_done = on_job_done
+        # Full discovery set — used to disable non-target ST-Links for clones.
+        self.known_adapters = list(known_adapters) if known_adapters is not None else list(adapters)
 
         self._lock = threading.Lock()
         self._running = False
         self._jobs: dict[str, FlashJob] = {}
         self._results: dict[str, FlashJobResult] = {}
+        self._cancel_requested = False
 
     @property
     def is_running(self) -> bool:
@@ -82,8 +95,9 @@ class FlashOrchestrator:
             return self._running
 
     def cancel_all(self) -> None:
-        """Cancel every in-flight job."""
+        """Cancel every in-flight job and skip remaining sequential work."""
         with self._lock:
+            self._cancel_requested = True
             jobs = list(self._jobs.values())
         for job in jobs:
             job.cancel()
@@ -104,7 +118,7 @@ class FlashOrchestrator:
 
     def run(self) -> OrchestratorSummary:
         """
-        Start all jobs and block until they finish.
+        Start jobs and block until they finish.
 
         Raises ``RuntimeError`` if a run is already in progress.
         """
@@ -112,6 +126,7 @@ class FlashOrchestrator:
             if self._running:
                 raise RuntimeError("a flash run is already in progress")
             self._running = True
+            self._cancel_requested = False
             self._jobs.clear()
             self._results.clear()
 
@@ -124,56 +139,21 @@ class FlashOrchestrator:
 
     def _execute(self) -> OrchestratorSummary:
         self.config.validate()
-        runnable: list[tuple[str, AdapterInfo]] = []
 
-        multi = len(self.adapters) > 1
+        bound: list[tuple[str, AdapterInfo]] = []
+        unbound: list[tuple[str, AdapterInfo]] = []
         for index, adapter in enumerate(self.adapters):
             key = _adapter_key(adapter, index)
-            if multi and not _can_bind_serial(adapter):
-                result = FlashJobResult(
-                    state=JobState.FAILED,
-                    exit_code=None,
-                    elapsed_sec=0.0,
-                    argv=[],
-                    log_lines=[],
-                    error_summary=(
-                        "adapter lacks a usable HLA serial; cannot flash in parallel "
-                        "with other probes (clone serial placeholder?)"
-                    ),
-                )
-                with self._lock:
-                    self._results[key] = result
-                if self.on_job_done is not None:
-                    self.on_job_done(adapter, result)
+            if can_bind_hla(adapter):
+                bound.append((key, adapter))
             else:
-                runnable.append((key, adapter))
+                unbound.append((key, adapter))
 
-        if runnable:
-            port_triples = allocate_openocd_ports_batch(len(runnable))
-            threads: list[threading.Thread] = []
+        if bound:
+            self._run_parallel(bound)
 
-            for (key, adapter), ports in zip(runnable, port_triples, strict=True):
-                job = FlashJob(
-                    adapter,
-                    self.config,
-                    ports=ports,
-                    on_line=self._make_line_callback(adapter),
-                )
-                job.mark_queued()
-                with self._lock:
-                    self._jobs[key] = job
-
-                thread = threading.Thread(
-                    target=self._run_one,
-                    args=(key, adapter, job),
-                    name=f"flash-{key}",
-                    daemon=True,
-                )
-                threads.append(thread)
-                thread.start()
-
-            for thread in threads:
-                thread.join()
+        if unbound and not self._is_cancelled():
+            self._run_sequential_isolated(unbound)
 
         ordered: list[AdapterJobResult] = []
         with self._lock:
@@ -183,15 +163,129 @@ class FlashOrchestrator:
             key = _adapter_key(adapter, index)
             result = stored.get(key)
             if result is None:
+                if self._is_cancelled():
+                    result = FlashJobResult(
+                        state=JobState.CANCELLED,
+                        exit_code=None,
+                        elapsed_sec=0.0,
+                        error_summary="cancelled before start",
+                    )
+                else:
+                    result = FlashJobResult(
+                        state=JobState.FAILED,
+                        exit_code=None,
+                        elapsed_sec=0.0,
+                        error_summary="missing job result",
+                    )
+            ordered.append(AdapterJobResult(adapter=adapter, result=result))
+
+        return OrchestratorSummary(results=ordered)
+
+    def _run_parallel(self, items: list[tuple[str, AdapterInfo]]) -> None:
+        port_triples = allocate_openocd_ports_batch(len(items))
+        threads: list[threading.Thread] = []
+
+        for (key, adapter), ports in zip(items, port_triples, strict=True):
+            job = FlashJob(
+                adapter,
+                self.config,
+                ports=ports,
+                on_line=self._make_line_callback(adapter),
+            )
+            job.mark_queued()
+            with self._lock:
+                self._jobs[key] = job
+
+            thread = threading.Thread(
+                target=self._run_one,
+                args=(key, adapter, job),
+                name=f"flash-{key}",
+                daemon=True,
+            )
+            threads.append(thread)
+            thread.start()
+
+        for thread in threads:
+            thread.join()
+
+    def _run_sequential_isolated(self, items: list[tuple[str, AdapterInfo]]) -> None:
+        from batch_stlink_flasher.services.windows_device_control import (
+            DeviceIsolationError,
+            isolated_usb_device,
+        )
+
+        sibling_ids = [
+            a.usb_path
+            for a in self.known_adapters
+            if a.usb_path
+        ]
+
+        for key, adapter in items:
+            if self._is_cancelled():
+                self._store_result(
+                    key,
+                    adapter,
+                    FlashJobResult(
+                        state=JobState.CANCELLED,
+                        exit_code=None,
+                        elapsed_sec=0.0,
+                        error_summary="cancelled before start",
+                    ),
+                )
+                continue
+
+            target_id = (adapter.usb_path or "").strip()
+            if not target_id:
+                self._store_result(
+                    key,
+                    adapter,
+                    FlashJobResult(
+                        state=JobState.FAILED,
+                        exit_code=None,
+                        elapsed_sec=0.0,
+                        error_summary=(
+                            "clone/unbound adapter has no USB instance id; "
+                            "cannot isolate for multi-adapter flash"
+                        ),
+                    ),
+                )
+                continue
+
+            ports = allocate_openocd_ports_batch(1)[0]
+            job = FlashJob(
+                adapter,
+                self.config,
+                ports=ports,
+                on_line=self._make_line_callback(adapter),
+            )
+            job.mark_queued()
+            with self._lock:
+                self._jobs[key] = job
+
+            try:
+                with isolated_usb_device(target_id, sibling_ids):
+                    if self._is_cancelled():
+                        job.cancel()
+                    result = job.run()
+            except DeviceIsolationError as exc:
                 result = FlashJobResult(
                     state=JobState.FAILED,
                     exit_code=None,
                     elapsed_sec=0.0,
-                    error_summary="missing job result",
+                    error_summary=str(exc),
                 )
-            ordered.append(AdapterJobResult(adapter=adapter, result=result))
+            except Exception as exc:  # noqa: BLE001
+                result = FlashJobResult(
+                    state=JobState.FAILED,
+                    exit_code=None,
+                    elapsed_sec=0.0,
+                    error_summary=f"job crashed: {exc}",
+                )
+            finally:
+                with self._lock:
+                    self._jobs.pop(key, None)
 
-        return OrchestratorSummary(results=ordered)
+            self._store_result(key, adapter, result)
 
     def _run_one(self, key: str, adapter: AdapterInfo, job: FlashJob) -> None:
         try:
@@ -203,11 +297,19 @@ class FlashOrchestrator:
                 elapsed_sec=0.0,
                 error_summary=f"job crashed: {exc}",
             )
+        self._store_result(key, adapter, result)
+        with self._lock:
+            self._jobs.pop(key, None)
+
+    def _store_result(self, key: str, adapter: AdapterInfo, result: FlashJobResult) -> None:
         with self._lock:
             self._results[key] = result
-            self._jobs.pop(key, None)
         if self.on_job_done is not None:
             self.on_job_done(adapter, result)
+
+    def _is_cancelled(self) -> bool:
+        with self._lock:
+            return self._cancel_requested
 
     def _make_line_callback(self, adapter: AdapterInfo) -> LineCallback | None:
         if self.on_line is None:
@@ -225,5 +327,5 @@ def _adapter_key(adapter: AdapterInfo, index: int) -> str:
     return f"{index}:{adapter.serial}:{adapter.usb_path or ''}"
 
 
-def _can_bind_serial(adapter: AdapterInfo) -> bool:
-    return bool(adapter.multi_adapter_ok and (adapter.hla_serial or "").strip())
+# Back-compat alias used by older tests / callers.
+_can_bind_serial = can_bind_hla

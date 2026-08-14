@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- Dual flash strategy: HLA originals flash in parallel; clones flash sequentially with Windows USB isolation
 - Dark / light appearance with View → Theme (default: follow system)
 - Script pipeline docs in `scripts/README.md`
 - GitHub Release workflow on tags ``vMAJOR.MINOR.PATCH`` (e.g. ``v0.1.0``) + ``scripts/create_release_tag.ps1``

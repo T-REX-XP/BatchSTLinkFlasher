@@ -74,7 +74,9 @@ class DeviceTable(QTableWidget):
             self.setItem(row, COL_HLA, QTableWidgetItem(hla))
             self.setItem(row, COL_STATUS, QTableWidgetItem(JobState.IDLE.value))
             self.setItem(row, COL_PROGRESS, QTableWidgetItem("-"))
-            note = adapter.skip_reason or ("OK" if adapter.multi_adapter_ok else "single-only")
+            note = adapter.skip_reason or (
+                "HLA · parallel OK" if adapter.multi_adapter_ok else "clone · sequential"
+            )
             self.setItem(row, COL_NOTE, QTableWidgetItem(note))
 
     def adapters(self) -> list[AdapterInfo]:
@@ -139,7 +141,8 @@ class DeviceTable(QTableWidget):
             self.set_status_for_serial(
                 adapter.serial,
                 JobState.IDLE.value,
-                adapter.skip_reason or ("OK" if adapter.multi_adapter_ok else "single-only"),
+                adapter.skip_reason
+                or ("HLA · parallel OK" if adapter.multi_adapter_ok else "clone · sequential"),
             )
             self.set_progress_for_serial(adapter.serial, "-")
 

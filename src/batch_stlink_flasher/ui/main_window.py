@@ -306,11 +306,26 @@ class MainWindow(QMainWindow):
         self._cancelled = 0
         self._update_summary_counts()
 
+        from batch_stlink_flasher.flashing.orchestrator import can_bind_hla
+
+        n_hla = sum(1 for a in adapters if can_bind_hla(a))
+        n_clone = len(adapters) - n_hla
+        mode_bits: list[str] = []
+        if n_hla:
+            mode_bits.append(f"{n_hla} parallel (HLA)")
+        if n_clone:
+            mode_bits.append(f"{n_clone} sequential (clone isolate)")
+        mode = " + ".join(mode_bits) if mode_bits else "flash"
+
         self.flash_btn.setEnabled(False)
         self.cancel_btn.setEnabled(True)
         self.refresh_btn.setEnabled(False)
 
-        worker = FlashWorker(adapters, config)
+        worker = FlashWorker(
+            adapters,
+            config,
+            known_adapters=self.device_table.adapters(),
+        )
         worker.line_received.connect(self._on_flash_line)
         worker.progress_updated.connect(self._on_progress)
         worker.job_finished.connect(self._on_job_finished)
@@ -318,7 +333,9 @@ class MainWindow(QMainWindow):
         worker.failed.connect(self._on_flash_failed)
         self._flash = worker
         worker.start()
-        self.statusBar().showMessage(f"Flashing {len(adapters)} device(s)...")
+        self.statusBar().showMessage(f"Flashing {len(adapters)} device(s): {mode}")
+        self.log_view.append_line(f"--- mode: {mode} ---")
+        self._session.append(f"--- mode: {mode} ---")
 
     def cancel_flash(self) -> None:
         if self._flash is not None and self._flash.isRunning():
@@ -443,14 +460,14 @@ class MainWindow(QMainWindow):
         if not selected:
             return "Select at least one adapter."
 
-        if len(selected) > 1:
-            bad = [a.serial for a in selected if not a.multi_adapter_ok or not a.hla_serial]
-            if bad:
-                return (
-                    "Multiple adapters selected, but these lack a usable HLA serial "
-                    f"for parallel flashing: {', '.join(bad)}. "
-                    "Uncheck them or flash one at a time."
-                )
+        from batch_stlink_flasher.flashing.orchestrator import can_bind_hla
+
+        unbound = [a for a in selected if not can_bind_hla(a)]
+        if unbound and any(not (a.usb_path or "").strip() for a in unbound):
+            return (
+                "Selected clone/unbound adapters need a USB instance path "
+                "for isolation. Refresh devices and try again."
+            )
         return None
 
     def _build_flash_config(self, settings) -> FlashConfig | None:

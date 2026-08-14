@@ -57,6 +57,7 @@ def test_validate_ok(window: MainWindow, tmp_path: Path, monkeypatch: pytest.Mon
                 hla_serial="",
                 vid=0x0483,
                 pid=0x3748,
+                usb_path=r"USB\VID_0483&PID_3748\%",
                 multi_adapter_ok=False,
             )
         ]
@@ -70,7 +71,7 @@ def test_validate_ok(window: MainWindow, tmp_path: Path, monkeypatch: pytest.Mon
     assert window._validate(settings) is None  # noqa: SLF001
 
 
-def test_validate_multi_without_hla(window: MainWindow, tmp_path: Path, monkeypatch) -> None:
+def test_validate_multi_clones_need_usb_path(window: MainWindow, tmp_path: Path, monkeypatch) -> None:
     openocd = tmp_path / "openocd.exe"
     openocd.write_bytes(b"x")
     fw = tmp_path / "app.elf"
@@ -93,7 +94,46 @@ def test_validate_multi_without_hla(window: MainWindow, tmp_path: Path, monkeypa
         target_cfg="target/stm32f1x.cfg",
     )
     err = window._validate(settings)  # noqa: SLF001
-    assert err and "HLA serial" in err
+    assert err and "USB instance" in err
+
+
+def test_validate_multi_clones_with_usb_path_ok(window: MainWindow, tmp_path: Path, monkeypatch) -> None:
+    openocd = tmp_path / "openocd.exe"
+    openocd.write_bytes(b"x")
+    fw = tmp_path / "app.elf"
+    fw.write_bytes(b"\x00")
+    monkeypatch.setattr(
+        "batch_stlink_flasher.ui.main_window.resolve_openocd_path",
+        lambda _v: openocd,
+    )
+    window.device_table.set_adapters(
+        [
+            AdapterInfo(
+                serial="%",
+                hla_serial="",
+                vid=0x0483,
+                pid=0x3748,
+                usb_path=r"USB\VID_0483&PID_3748\%",
+                multi_adapter_ok=False,
+            ),
+            AdapterInfo(
+                serial="5&a&0&1",
+                hla_serial="",
+                vid=0x0483,
+                pid=0x3748,
+                usb_path=r"USB\VID_0483&PID_3748\5&a&0&1",
+                multi_adapter_ok=False,
+            ),
+        ]
+    )
+    window.device_table.set_all_checked(True)
+    settings = AppSettings(
+        openocd_path=str(openocd),
+        last_firmware_path=str(fw),
+        interface_cfg="interface/stlink.cfg",
+        target_cfg="target/stm32f1x.cfg",
+    )
+    assert window._validate(settings) is None  # noqa: SLF001
 
 
 def test_progress_and_job_finished_handlers(window: MainWindow) -> None:
@@ -155,6 +195,7 @@ def test_start_and_cancel_flash(window: MainWindow, tmp_path: Path, monkeypatch:
                 hla_serial="",
                 vid=0x0483,
                 pid=0x3748,
+                usb_path=r"USB\VID_0483&PID_3748\%",
                 multi_adapter_ok=False,
             )
         ]

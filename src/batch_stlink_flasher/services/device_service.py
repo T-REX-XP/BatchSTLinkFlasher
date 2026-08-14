@@ -38,9 +38,9 @@ STLINK_PIDS: frozenset[int] = frozenset(
 )
 
 _MISSING_SERIAL_REASON = (
-    "USB serial missing or placeholder (clone ST-Links often report '%'). "
-    "Device is visible; OpenOCD cannot bind this probe by serial — "
-    "flash only with this one ST-Link plugged in (or one selected and others unplugged)."
+    "Clone / no unique HLA serial. Listed for sequential flash: "
+    "siblings are temporarily disabled so OpenOCD targets this probe. "
+    "Genuine unique serials enable true parallel flashing."
 )
 
 

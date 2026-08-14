@@ -6,23 +6,38 @@
 - Scripts directory available (often shipped with the install). Use `-s <scripts_dir>` if needed.
 - Optional but recommended: [stlink tools](https://github.com/stlink-org/stlink) (`st-info --probe`) for reliable serial listing.
 
-## Multi-adapter rules
+## Multi-adapter strategy (originals + clones)
 
-When several ST-Links are connected:
+OpenOCD can only **pin** a probe when it has a usable USB/HLA serial
+(``hla_serial``). Genuine ST-Links usually do; many cheap clones report ``%``
+(or Windows invents an instance id like ``5&28bd6581&0&6``).
 
-1. **Identify** each by USB/HLA serial (`st-info --probe` prints `serial` and often an OpenOCD-oriented form).
-2. **Bind** each OpenOCD instance with `-c "hla_serial <value>"` (or `adapter serial` on newer OpenOCD + `interface/stlink.cfg`).
-3. **Isolate ports** per instance so GDB/telnet/tcl do not collide.
+| Probe type | Discovery | Flash mode |
+|------------|-----------|------------|
+| **Original / unique serial** | `multi_adapter_ok=true`, HLA set | **Parallel** — one OpenOCD per probe with ``hla_serial`` + unique TCP ports |
+| **Clone / placeholder serial** | Listed with USB instance path; `multi_adapter_ok=false` | **Sequential + isolation** — disable sibling ST-Link PnP nodes, run one OpenOCD **without** ``hla_serial``, re-enable siblings |
 
-Example port scheme for job index `i` (0-based), base `3333`:
+Mixed selection is supported: HLA probes flash in parallel first, then clones
+run one-by-one with isolation.
+
+**Isolation** uses Windows Config Manager (``CM_Disable_DevNode`` /
+``CM_Enable_DevNode``). If disable fails (permissions), the job errors with a
+clear message — elevate the app, unplug other probes, or use unique-serial
+adapters.
+
+**Recommendation for factory lines:** prefer ST-Links with unique serials so
+all selected probes flash in true parallel without device disable.
+
+### Ports
+
+Unique TCP ports per OpenOCD process (ephemeral allocation preferred). Example
+scheme for job index `i` (0-based), base `3333`:
 
 | Port role | Value |
 |-----------|--------|
 | gdb_port | `3333 + 3*i` |
 | telnet_port | `3334 + 3*i` |
 | tcl_port | `3335 + 3*i` |
-
-Or allocate ephemeral free ports at runtime (preferred).
 
 ## Example flash command (one device)
 
@@ -91,9 +106,9 @@ console process**. Instance IDs look like:
 No libusb / Zadig change is required for discovery.
 
 Clone ST-Link V2 devices often expose a placeholder serial (`%`). Those probes
-are still listed (`multi_adapter_ok=false`); OpenOCD can flash them when they
-are the **only** adapter (`FlashJob` / `build_openocd_command` omit `hla_serial`).
-Genuine unique serials are required for parallel multi-adapter runs.
+are listed and flash **sequentially** with Windows PnP isolation (siblings
+temporarily disabled). Genuine unique serials still enable **parallel**
+multi-adapter runs via `hla_serial`.
 
 ### Fallback: pyusb
 

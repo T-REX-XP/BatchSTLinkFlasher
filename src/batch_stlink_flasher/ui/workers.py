@@ -33,10 +33,17 @@ class FlashWorker(QThread):
     run_finished = Signal(object)  # OrchestratorSummary
     failed = Signal(str)
 
-    def __init__(self, adapters: list[AdapterInfo], config: FlashConfig) -> None:
+    def __init__(
+        self,
+        adapters: list[AdapterInfo],
+        config: FlashConfig,
+        *,
+        known_adapters: list[AdapterInfo] | None = None,
+    ) -> None:
         super().__init__()
         self._adapters = adapters
         self._config = config
+        self._known_adapters = known_adapters
         self._orch: FlashOrchestrator | None = None
 
     def cancel(self) -> None:
@@ -66,6 +73,7 @@ class FlashWorker(QThread):
                 self._config,
                 on_line=on_line,
                 on_job_done=on_done,
+                known_adapters=self._known_adapters,
             )
             self._orch = orch
             summary: OrchestratorSummary = orch.run()

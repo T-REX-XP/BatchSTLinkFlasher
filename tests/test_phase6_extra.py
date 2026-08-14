@@ -193,7 +193,7 @@ def test_flash_worker(qapp, monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> 
     )
 
     class _Orch:
-        def __init__(self, adapters, config, on_line=None, on_job_done=None):
+        def __init__(self, adapters, config, on_line=None, on_job_done=None, known_adapters=None):
             self._on_line = on_line
             self._on_done = on_job_done
 
