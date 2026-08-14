@@ -15,6 +15,7 @@ from PySide6.QtWidgets import (
     QPushButton,
     QSplitter,
     QStatusBar,
+    QStyle,
     QVBoxLayout,
     QWidget,
 )
@@ -27,17 +28,28 @@ from batch_stlink_flasher.services.settings import (
     resolve_openocd_path,
     save_settings,
 )
+from batch_stlink_flasher.ui.about_dialog import AboutDialog
 from batch_stlink_flasher.ui.config_panel import ConfigPanel
 from batch_stlink_flasher.ui.device_table import DeviceTable
 from batch_stlink_flasher.ui.log_view import LogView
+from batch_stlink_flasher.ui.theme import decorate_button, load_app_icon
 from batch_stlink_flasher.ui.workers import DiscoveryWorker, FlashWorker
 from batch_stlink_flasher.util.log_export import SessionLog, export_log_json, export_log_text
 
 
 class MainWindow(QMainWindow):
-    def __init__(self) -> None:
+    def __init__(
+        self,
+        *,
+        initial_adapters: list | None = None,
+        initial_scan_error: str | None = None,
+        auto_refresh: bool | None = None,
+    ) -> None:
         super().__init__()
         self.setWindowTitle(f"Batch ST-Link Flasher {__version__}")
+        icon = load_app_icon()
+        if not icon.isNull():
+            self.setWindowIcon(icon)
         self.resize(1100, 720)
 
         self._discovery: DiscoveryWorker | None = None
@@ -49,10 +61,11 @@ class MainWindow(QMainWindow):
         self._session = SessionLog()
 
         self.device_table = DeviceTable()
+        self.device_table.setAlternatingRowColors(True)
         self.config_panel = ConfigPanel()
         self.log_view = LogView()
         self.summary_label = QLabel("Idle")
-        self.summary_label.setStyleSheet("font-weight: 600;")
+        self.summary_label.setObjectName("summaryLabel")
 
         self.refresh_btn = QPushButton("Refresh devices")
         self.select_all_btn = QPushButton("Select all")
@@ -63,7 +76,24 @@ class MainWindow(QMainWindow):
         self.export_log_btn = QPushButton("Export log")
         self.cancel_btn.setEnabled(False)
 
+        decorate_button(self.refresh_btn, standard=QStyle.StandardPixmap.SP_BrowserReload)
+        decorate_button(self.select_all_btn, standard=QStyle.StandardPixmap.SP_DialogYesButton)
+        decorate_button(self.select_none_btn, standard=QStyle.StandardPixmap.SP_DialogNoButton)
+        decorate_button(
+            self.flash_btn,
+            standard=QStyle.StandardPixmap.SP_DialogApplyButton,
+            role="primary",
+        )
+        decorate_button(
+            self.cancel_btn,
+            standard=QStyle.StandardPixmap.SP_DialogCancelButton,
+            role="danger",
+        )
+        decorate_button(self.clear_log_btn, standard=QStyle.StandardPixmap.SP_DialogResetButton)
+        decorate_button(self.export_log_btn, standard=QStyle.StandardPixmap.SP_DialogSaveButton)
+
         top_btns = QHBoxLayout()
+        top_btns.setSpacing(8)
         top_btns.addWidget(self.refresh_btn)
         top_btns.addWidget(self.select_all_btn)
         top_btns.addWidget(self.select_none_btn)
@@ -75,6 +105,8 @@ class MainWindow(QMainWindow):
 
         left = QWidget()
         left_layout = QVBoxLayout(left)
+        left_layout.setContentsMargins(10, 10, 10, 8)
+        left_layout.setSpacing(10)
         left_layout.addLayout(top_btns)
         left_layout.addWidget(self.device_table, stretch=2)
         left_layout.addWidget(self.config_panel, stretch=0)
@@ -88,6 +120,7 @@ class MainWindow(QMainWindow):
 
         container = QWidget()
         root = QVBoxLayout(container)
+        root.setContentsMargins(0, 0, 0, 0)
         root.addWidget(splitter)
         self.setCentralWidget(container)
 
@@ -99,7 +132,25 @@ class MainWindow(QMainWindow):
         self._connect_signals()
 
         self.config_panel.apply_settings(load_settings())
-        self.refresh_devices()
+
+        # Splash may hand off a completed scan; otherwise refresh on startup.
+        if auto_refresh is None:
+            auto_refresh = initial_adapters is None and not initial_scan_error
+
+        if initial_adapters is not None:
+            self._on_discovery_ok(list(initial_adapters))
+            if initial_scan_error:
+                self.statusBar().showMessage(f"Startup scan warning: {initial_scan_error}")
+            elif not initial_adapters:
+                self.statusBar().showMessage("Startup scan: no ST-Link adapters found")
+            else:
+                self.statusBar().showMessage(
+                    f"Startup scan: found {len(initial_adapters)} adapter(s)"
+                )
+        elif initial_scan_error:
+            self._on_discovery_failed(initial_scan_error)
+        elif auto_refresh:
+            self.refresh_devices()
 
     def _build_menu(self) -> None:
         file_menu = self.menuBar().addMenu("&File")
@@ -386,13 +437,7 @@ class MainWindow(QMainWindow):
         )
 
     def _about(self) -> None:
-        QMessageBox.about(
-            self,
-            "About",
-            f"Batch ST-Link Flasher {__version__}\n\n"
-            "Parallel STM32 flashing via OpenOCD and ST-Link programmers.\n"
-            "See docs/requirements.md and docs/plan.md.",
-        )
+        AboutDialog(self).exec()
 
     def _shortcuts(self) -> None:
         QMessageBox.information(

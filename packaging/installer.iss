@@ -7,7 +7,7 @@
 
 #define MyAppName "Batch ST-Link Flasher"
 #define MyAppId "BatchSTLinkFlasher"
-#define MyAppVersion "0.1.0"
+#define MyAppVersion "0.1.0.2"
 #define MyAppPublisher "BatchSTLinkFlasher"
 #define MyAppExeName "BatchSTLinkFlasher.exe"
 
@@ -28,6 +28,7 @@ PrivilegesRequired=lowest
 PrivilegesRequiredOverridesAllowed=dialog
 ArchitecturesInstallIn64BitMode=x64compatible
 UninstallDisplayIcon={app}\{#MyAppExeName}
+SetupIconFile=..\src\batch_stlink_flasher\assets\app_icon.ico
 SetupLogging=yes
 
 [Languages]

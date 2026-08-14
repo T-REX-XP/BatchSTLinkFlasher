@@ -98,6 +98,9 @@ def is_usable_usb_serial(serial: str) -> bool:
     return True
 
 
+from batch_stlink_flasher.util.win_process import hidden_subprocess_kwargs
+
+
 def _query_pnp_json() -> str:
     """Run PowerShell to dump present ST VID USB devices as JSON."""
     script = (
@@ -113,6 +116,8 @@ def _query_pnp_json() -> str:
                 "powershell.exe",
                 "-NoProfile",
                 "-NonInteractive",
+                "-WindowStyle",
+                "Hidden",
                 "-Command",
                 script,
             ],
@@ -120,6 +125,7 @@ def _query_pnp_json() -> str:
             text=True,
             timeout=30,
             check=False,
+            **hidden_subprocess_kwargs(),
         )
     except (OSError, subprocess.SubprocessError) as exc:
         logger.warning("Windows PnP query failed: %s", exc)

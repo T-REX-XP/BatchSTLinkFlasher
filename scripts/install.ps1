@@ -38,11 +38,22 @@ $ErrorActionPreference = "Stop"
 $Root = Split-Path -Parent $PSScriptRoot
 Set-Location $Root
 
+. (Join-Path $PSScriptRoot "version.ps1")
+
 $AppName = "Batch ST-Link Flasher"
 $AppId = "BatchSTLinkFlasher"
 $Publisher = "BatchSTLinkFlasher"
-$Version = "0.1.0"
 $ExeName = "BatchSTLinkFlasher.exe"
+
+function Resolve-InstallVersion {
+    param([string]$Source)
+    $buildInfo = Join-Path $Source "build-info.json"
+    if (Test-Path $buildInfo) {
+        $info = Get-Content -LiteralPath $buildInfo -Raw -Encoding UTF8 | ConvertFrom-Json
+        if ($info.Version) { return [string]$info.Version }
+    }
+    return (Read-ProjectVersion).Version
+}
 
 function Get-InstallRoot {
     if ($AllUsers) {
@@ -106,7 +117,6 @@ function Register-UninstallEntry {
     }
 }
 
-Write-Host "==> $AppName installer v$Version" -ForegroundColor Cyan
 Ensure-AdminIfNeeded
 
 if ($Build) {
@@ -121,7 +131,9 @@ if (-not (Test-Path (Join-Path $SourceDir $ExeName))) {
     throw "Missing $ExeName under '$SourceDir'. Run with -Build or scripts\build_windows.ps1 first."
 }
 
+$Version = Resolve-InstallVersion -Source $SourceDir
 $InstallRoot = Get-InstallRoot
+Write-Host "==> $AppName installer v$Version" -ForegroundColor Cyan
 Write-Host "Source : $SourceDir"
 Write-Host "Target : $InstallRoot"
 

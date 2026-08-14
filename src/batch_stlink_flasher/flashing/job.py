@@ -20,6 +20,7 @@ from batch_stlink_flasher.flashing.openocd import (
     summarize_openocd_error,
 )
 from batch_stlink_flasher.util.ports import allocate_openocd_ports
+from batch_stlink_flasher.util.win_process import hidden_subprocess_kwargs
 
 LineCallback = Callable[[str], None]
 
@@ -106,6 +107,7 @@ class FlashJob:
                 encoding="utf-8",
                 errors="replace",
                 bufsize=1,
+                **hidden_subprocess_kwargs(),
             )
         except OSError as exc:
             self._state = JobState.FAILED

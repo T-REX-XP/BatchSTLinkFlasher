@@ -31,11 +31,12 @@ def qapp() -> QApplication:
 
 @pytest.fixture
 def window(qapp: QApplication, monkeypatch: pytest.MonkeyPatch) -> MainWindow:
+    # Avoid auto-refresh racing tests; splash owns the first scan in production.
     monkeypatch.setattr(
         "batch_stlink_flasher.ui.main_window.DiscoveryWorker.start",
         lambda self: None,
     )
-    win = MainWindow()
+    win = MainWindow(auto_refresh=False)
     yield win
     win.close()
 

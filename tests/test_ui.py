@@ -15,6 +15,8 @@ from PySide6.QtWidgets import QApplication
 
 from batch_stlink_flasher.flashing.models import AdapterInfo
 from batch_stlink_flasher.services.settings import AppSettings, load_settings, save_settings
+from batch_stlink_flasher import __version__
+from batch_stlink_flasher.ui.about_dialog import AboutDialog
 from batch_stlink_flasher.ui.config_panel import ConfigPanel
 from batch_stlink_flasher.ui.device_table import DeviceTable
 from batch_stlink_flasher.ui.main_window import MainWindow
@@ -99,10 +101,25 @@ def test_main_window_builds(qapp: QApplication, monkeypatch) -> None:
         "batch_stlink_flasher.ui.main_window.DiscoveryWorker.start",
         lambda self: None,
     )
-    window = MainWindow()
+    window = MainWindow(auto_refresh=False)
     assert window.windowTitle().startswith("Batch ST-Link Flasher")
     assert window.flash_btn.text() == "Flash"
+    assert window.flash_btn.objectName() == "primaryButton"
+    assert not window.flash_btn.icon().isNull()
     # Validation with empty selection / missing files
     err = window._validate(window.config_panel.to_settings())  # noqa: SLF001
     assert err is not None
     window.close()
+
+
+def test_about_dialog(qapp: QApplication) -> None:
+    from PySide6.QtWidgets import QLabel
+
+    dialog = AboutDialog()
+    assert "About" in dialog.windowTitle()
+    version_label = dialog.findChild(QLabel, "aboutVersion")
+    assert version_label is not None
+    text = version_label.text()
+    assert "Version" in text
+    assert str(__version__.split(".")[-1]) in text or "build" in text.lower()
+    dialog.close()

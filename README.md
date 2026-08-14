@@ -2,7 +2,7 @@
 
 Desktop app to flash the **same firmware** onto **multiple STM32 targets in parallel**, each via its own **ST-Link V2** programmer, driven by **OpenOCD**.
 
-**Version:** 0.1.0
+**Version:** see `packaging/version.json` (auto-increments build on each `build_windows.ps1` run)
 
 ## Status
 

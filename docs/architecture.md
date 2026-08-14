@@ -34,11 +34,17 @@ src/batch_stlink_flasher/
   __init__.py          # package version
   __main__.py          # python -m batch_stlink_flasher
   app.py               # QApplication bootstrap
+  assets_util.py
+  assets/              # logo.png, app_icon.png/.ico, splash.png
   ui/
     main_window.py
+    about_dialog.py
+    splash_screen.py
+    theme.py
     device_table.py
     config_panel.py
     log_view.py
+    workers.py
   services/
     device_service.py  # discovery
     settings.py        # QSettings / JSON persistence
@@ -50,6 +56,7 @@ src/batch_stlink_flasher/
   util/
     ports.py           # allocate free TCP ports
     logging_setup.py
+    win_process.py
 ```
 
 ## 3. Core models

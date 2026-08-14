@@ -8,7 +8,7 @@ a = Analysis(
     ['../src/batch_stlink_flasher/__main__.py'],
     pathex=['../src'],
     binaries=[],
-    datas=[],
+    datas=[('../src/batch_stlink_flasher/assets', 'batch_stlink_flasher/assets')],
     hiddenimports=['PySide6.QtCore', 'PySide6.QtGui', 'PySide6.QtWidgets'],
     hookspath=[],
     hooksconfig={},
@@ -37,6 +37,7 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
+    icon='../src/batch_stlink_flasher/assets/app_icon.ico',
 )
 coll = COLLECT(
     exe,

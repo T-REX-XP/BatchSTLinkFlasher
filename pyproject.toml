@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "batch-stlink-flasher"
-version = "0.1.0"
+version = "0.1.0.2"
 description = "Batch-flash multiple STM32 targets via ST-Link V2 and OpenOCD"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -33,6 +33,9 @@ batch-stlink-flash = "batch_stlink_flasher.flash:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.package-data]
+batch_stlink_flasher = ["assets/*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

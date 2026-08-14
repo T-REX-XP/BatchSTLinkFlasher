@@ -86,6 +86,37 @@ CI runs on push/PR (`.github/workflows/ci.yml`):
 - `pytest --cov` with **fail-under 85%**
 - ruff check (non-blocking)
 
-## Versioning
+## Branding / icons
 
-Package version is `0.1.0` (see `pyproject.toml` and `CHANGELOG.md`).
+Flat chip logo lives under `src/batch_stlink_flasher/assets/`:
+
+- `logo.png` / `app_icon.png` — UI splash & About
+- `app_icon.ico` — Windows EXE / installer (multi-size)
+
+Regenerate after design tweaks:
+
+```powershell
+.\.venv\Scripts\python scripts\generate_app_icon.py
+```
+
+## Versioning & build numbers
+
+Source of truth: `packaging/version.json` (`major.minor.patch.build`).
+
+Every packaging build increments **build** automatically:
+
+```powershell
+powershell -File scripts\build_windows.ps1          # bumps 0.1.0.N -> 0.1.0.N+1
+powershell -File scripts\build_windows.ps1 -NoBump  # keep current version
+powershell -File scripts\bump_version.ps1 -Patch    # 0.1.0.x -> 0.1.1.0
+```
+
+`bump_version.ps1` also syncs:
+
+- `src/batch_stlink_flasher/_version.py`
+- `pyproject.toml`
+- `packaging/installer.iss`
+
+## Versioning notes
+
+Package/display version uses four components, e.g. `0.1.0.12` (see `packaging/version.json` and `CHANGELOG.md` for release notes).

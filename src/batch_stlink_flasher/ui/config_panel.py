@@ -10,12 +10,14 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QLineEdit,
     QPushButton,
+    QStyle,
     QVBoxLayout,
     QWidget,
 )
 
 from batch_stlink_flasher.flashing.openocd import default_bin_base_address
 from batch_stlink_flasher.services.settings import AppSettings
+from batch_stlink_flasher.ui.theme import decorate_button
 
 
 class ConfigPanel(QWidget):
@@ -32,6 +34,7 @@ class ConfigPanel(QWidget):
         self.timeout_edit = QLineEdit()
 
         form = QFormLayout()
+        form.setSpacing(8)
         form.addRow("OpenOCD:", self._with_browse(self.openocd_edit, self._browse_openocd))
         form.addRow("Firmware:", self._with_browse(self.firmware_edit, self._browse_firmware))
         form.addRow("Interface cfg:", self.interface_edit)
@@ -72,8 +75,10 @@ class ConfigPanel(QWidget):
         row = QWidget()
         layout = QHBoxLayout(row)
         layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(6)
         layout.addWidget(edit)
         btn = QPushButton("Browse...")
+        decorate_button(btn, standard=QStyle.StandardPixmap.SP_DirOpenIcon)
         btn.clicked.connect(handler)
         layout.addWidget(btn)
         row._dir_mode = dir_mode  # noqa: SLF001

@@ -16,6 +16,7 @@ from batch_stlink_flasher.services.windows_pnp import (
     list_stlink_pnp_devices,
 )
 from batch_stlink_flasher.util.hla_serial import normalize_hla_serial, strip_hla_quotes
+from batch_stlink_flasher.util.win_process import hidden_subprocess_kwargs
 
 logger = logging.getLogger(__name__)
 
@@ -117,6 +118,7 @@ def run_stinfo_probe(stinfo_path: str | Path, *, timeout_sec: float = 15.0) -> s
         text=True,
         timeout=timeout_sec,
         check=False,
+        **hidden_subprocess_kwargs(),
     )
     stdout = completed.stdout or ""
     if completed.returncode != 0 and not stdout.strip():

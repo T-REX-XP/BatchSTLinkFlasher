@@ -4,13 +4,16 @@
   Build PyInstaller dist and compile a Windows Setup.exe (Inno Setup).
 
 .DESCRIPTION
-  1. Runs scripts\build_windows.ps1
+  1. Runs scripts\build_windows.ps1 (bumps build version unless -NoBump / -SkipBuild)
   2. Compiles packaging\installer.iss with ISCC.exe if Inno Setup is installed
   3. Always leaves the onedir payload under dist\BatchSTLinkFlasher\
   4. Optionally zips the onedir payload for portable distribution
 
 .PARAMETER SkipBuild
   Skip PyInstaller rebuild (use existing dist\BatchSTLinkFlasher).
+
+.PARAMETER NoBump
+  Passed to build_windows.ps1: keep current version (no build increment).
 
 .PARAMETER ZipPortable
   Also create dist\BatchSTLinkFlasher-<version>-portable.zip
@@ -21,6 +24,7 @@
 [CmdletBinding()]
 param(
     [switch]$SkipBuild,
+    [switch]$NoBump,
     [switch]$ZipPortable,
     [switch]$SkipInno
 )
@@ -29,7 +33,8 @@ $ErrorActionPreference = "Stop"
 $Root = Split-Path -Parent $PSScriptRoot
 Set-Location $Root
 
-$Version = "0.1.0"
+. (Join-Path $PSScriptRoot "version.ps1")
+
 $AppId = "BatchSTLinkFlasher"
 $DistApp = Join-Path $Root "dist\$AppId"
 $Iss = Join-Path $Root "packaging\installer.iss"
@@ -50,14 +55,19 @@ function Find-ISCC {
 
 if (-not $SkipBuild) {
     Write-Host "==> Building onedir payload" -ForegroundColor Cyan
-    & (Join-Path $PSScriptRoot "build_windows.ps1")
+    $buildArgs = @()
+    if ($NoBump) { $buildArgs += "-NoBump" }
+    & (Join-Path $PSScriptRoot "build_windows.ps1") @buildArgs
 }
+
+$ver = Read-ProjectVersion
+$Version = $ver.Version
+Write-Host ("==> Packaging version {0}" -f $Version) -ForegroundColor Cyan
 
 if (-not (Test-Path (Join-Path $DistApp "BatchSTLinkFlasher.exe"))) {
     throw "Missing dist payload at $DistApp. Build failed or -SkipBuild used without a prior build."
 }
 
-# Write install.json template into dist so PowerShell installer has version metadata after copy.
 @{
     AppId       = $AppId
     Version     = $Version
@@ -86,7 +96,6 @@ if (-not $SkipInno) {
         if (Test-Path $setup) {
             Write-Host "Setup.exe: $setup" -ForegroundColor Green
         } else {
-            # Inno OutputBaseFilename may land here; list matching artifacts
             Get-ChildItem (Join-Path $Root "dist") -Filter "*Setup*.exe" | ForEach-Object {
                 Write-Host "Setup.exe: $($_.FullName)" -ForegroundColor Green
             }
@@ -96,6 +105,7 @@ if (-not $SkipInno) {
 
 Write-Host ""
 Write-Host "Artifacts:" -ForegroundColor Cyan
+Write-Host "  Version  : $Version"
 Write-Host "  Onedir   : $DistApp"
 Write-Host "  Install  : powershell -File scripts\install.ps1 [-Build] [-DesktopShortcut]"
 Write-Host "  Uninstall: powershell -File scripts\uninstall.ps1"
