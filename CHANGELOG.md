@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - Identify LED: blink ST-Link COM LED via USB re-enumeration to map table rows to physical dongles
 - Device table shows USB port / hub (from Windows ``LocationInformation``)
 - Dual flash strategy: HLA originals flash in parallel; clones flash sequentially with Windows USB isolation
+- Docs: ``docs/dual-flash-strategy.md`` (flow / sequence / isolation diagrams)
 - Dark / light appearance with View → Theme (default: follow system)
 - Script pipeline docs in `scripts/README.md`
 - GitHub Release workflow on tags ``vMAJOR.MINOR.PATCH`` (e.g. ``v0.1.0``) + ``scripts/create_release_tag.ps1``
@@ -19,7 +20,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - Runtime dependency fetch `scripts/fetch_runtime_deps.ps1` / `packaging/runtime-deps.json`
 - Auto-detect bundled OpenOCD under `tools/openocd` via `bundled-tools.json`
 - Flat chip logo / multi-size Windows ``app_icon.ico`` (regenerate via ``scripts/generate_app_icon.py``)
-- Modern Windows 11 Fluent-style app icon (gradient plate, layered chip glyph)
 - Themed dark UI with button icons, splash artwork, and application icon
 - About dialog (Help → About) showing version/build and project summary
 - Startup splash screen that scans for ST-Link devices before opening the main window
@@ -29,7 +29,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
-- Transparent About/splash logo (chip only); Windows ``app_icon`` keeps Fluent dark plate
 - List both ST-Link clones when Windows assigns a generated instance id (``5&…``) because they share serial ``%``
 - Splash→main handoff: show main before closing splash; avoid quit-on-last-window-closed race
 - Frozen EXE ignored visible UI when ``QT_QPA_PLATFORM=offscreen`` was inherited from a test shell; clear it when frozen
@@ -40,6 +39,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
+- App logo restored to flat charcoal tile + chip; transparent outside rounded corners (About / splash / EXE)
 - Removed deprecated script aliases (`bootstrap`, `build_windows`, `build_full_installer`); use the 3-step pipeline in `scripts/README.md`
 - Packaging scripts split into 3 steps: `install_build_deps` → `build_app` → `build_installer` (see `scripts/README.md`)
 - Packaging docs: OpenOCD is bundled by the full installer; operators do not need system Python

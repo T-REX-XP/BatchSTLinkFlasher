@@ -10,8 +10,9 @@
                 │ signals / slots             │
 ┌───────────────▼─────────────┐   ┌───────────▼───────────┐
 │  DeviceService              │   │  FlashOrchestrator    │
-│  - enumerate ST-Links       │   │  - spawn N jobs       │
-│  - map to AdapterInfo       │   │  - unique ports       │
+│  - enumerate ST-Links       │   │  - HLA parallel       │
+│  - map to AdapterInfo       │   │  - clone sequential   │
+│  - usb_path / HLA flags     │   │  - USB isolation      │
 └───────────────┬─────────────┘   └───────────┬───────────┘
                 │                             │
                 │                  ┌──────────▼──────────┐
@@ -23,9 +24,12 @@
                 │                             │
 ┌───────────────▼─────────────────────────────▼───────────┐
 │  OpenOCDProcess (subprocess)  × N                       │
-│  -c "hla_serial …"  -c "gdb_port …"  program/verify     │
+│  HLA: -c "hla_serial …"   clones: no serial + isolation │
+│  unique ports + program/verify                             │
 └─────────────────────────────────────────────────────────┘
 ```
+
+Dual flash strategy (diagrams): [`docs/dual-flash-strategy.md`](dual-flash-strategy.md).
 
 ## 2. Package layout
 
@@ -48,10 +52,13 @@ src/batch_stlink_flasher/
     workers.py
   services/
     device_service.py  # discovery
+    windows_pnp.py     # Windows USB enum + port location
+    windows_device_control.py  # disable/enable PnP (clone isolation)
+    identify.py        # Identify LED blink
     settings.py        # QSettings / JSON persistence
   flashing/
     models.py          # AdapterInfo, FlashConfig, JobState
-    orchestrator.py
+    orchestrator.py    # dual strategy: HLA parallel + clone sequential
     job.py
     openocd.py         # command builder + process wrapper
   util/
@@ -93,7 +100,9 @@ class FlashConfig:
 ## 4. OpenOCD process rules
 
 1. **One process per adapter** — never share an OpenOCD instance across devices.
-2. **Serial binding** — always pass adapter serial so the correct probe is used when several are plugged in.
+2. **Serial binding** — HLA-capable adapters always pass ``hla_serial``. Clones
+   without a unique serial flash under Windows USB isolation instead (see
+   [`dual-flash-strategy.md`](dual-flash-strategy.md)).
 3. **Unique ports** — for job index `i`, allocate three free ports (or fixed base + offsets): `gdb`, `telnet`, `tcl`. Prefer `tcl_port disabled` / `0` if supported by the installed OpenOCD to reduce conflicts.
 4. **Working directory** — OpenOCD scripts path must resolve (`-s` search path if needed).
 5. **Program sequence** (typical):

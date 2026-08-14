@@ -20,6 +20,9 @@ OpenOCD can only **pin** a probe when it has a usable USB/HLA serial
 Mixed selection is supported: HLA probes flash in parallel first, then clones
 run one-by-one with isolation.
 
+**Full explanation, sequence diagrams, and failure modes:**
+[`docs/dual-flash-strategy.md`](dual-flash-strategy.md).
+
 **Isolation** uses Windows Config Manager (``CM_Disable_DevNode`` /
 ``CM_Enable_DevNode``). If disable fails (permissions), the job errors with a
 clear message — elevate the app, unplug other probes, or use unique-serial

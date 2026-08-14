@@ -27,7 +27,7 @@ Desktop application that flashes **the same firmware file** onto **1–N STM32 (
 
 - Prefer programmers with a unique USB serial (HLA) for true parallel flashing.
 - Clone ST-Links without unique serials are supported via sequential flash with
-  Windows USB isolation (see `docs/openocd-integration.md`).
+  Windows USB isolation (see `docs/dual-flash-strategy.md`).
 - Operator knows (or selects) the correct OpenOCD interface + target/board scripts for the product under test.
 - Firmware is a single file: `.elf`, `.hex`, or `.bin` (with base address when `.bin`).
 

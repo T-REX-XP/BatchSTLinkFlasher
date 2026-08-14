@@ -24,6 +24,7 @@ See `docs/plan.md`.
 |----------|-------------|
 | [docs/requirements.md](docs/requirements.md) | Product requirements (AI-ready) |
 | [docs/architecture.md](docs/architecture.md) | Design & module layout |
+| [docs/dual-flash-strategy.md](docs/dual-flash-strategy.md) | Parallel HLA + sequential clone isolation |
 | [docs/plan.md](docs/plan.md) | Phased implementation checklist |
 | [docs/openocd-integration.md](docs/openocd-integration.md) | OpenOCD multi-adapter notes |
 | [docs/packaging.md](docs/packaging.md) | Packaging overview |

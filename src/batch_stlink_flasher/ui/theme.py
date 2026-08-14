@@ -365,7 +365,7 @@ def load_app_icon() -> QIcon:
 
 
 def load_logo_pixmap(*, max_width: int = 160) -> QPixmap:
-    """Brand logo for splash / About (flat chip glyph)."""
+    """Brand logo for splash / About (charcoal tile + chip)."""
     for name in ("logo.png", "app_icon.png"):
         path = asset_path(name)
         if path is None:
