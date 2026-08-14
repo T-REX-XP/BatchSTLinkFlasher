@@ -43,9 +43,11 @@ Use this checklist in order. Check items off in PRs / commits. Update `CHANGELOG
 
 ## Phase 4 — Parallel orchestrator
 
-- [ ] `FlashOrchestrator`: N jobs, unique ports, aggregate summary
-- [ ] Cancel all / cancel one
-- [ ] Ensure one failed job does not abort siblings
+- [x] `FlashOrchestrator`: N jobs, unique ports, aggregate summary
+- [x] Cancel all / cancel one
+- [x] Ensure one failed job does not abort siblings
+- [x] CLI: `python -m batch_stlink_flasher.flash --all` / `--adapters 1,2`
+- [ ] Manual: flash 2+ probes in parallel on hardware (operator)
 
 **Done when**: 2+ devices flash in parallel from a small script.
 

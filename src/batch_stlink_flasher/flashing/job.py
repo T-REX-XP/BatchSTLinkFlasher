@@ -72,6 +72,12 @@ class FlashJob:
         if proc is not None and proc.poll() is None:
             _terminate_process(proc)
 
+    def mark_queued(self) -> None:
+        """Move IDLE → QUEUED before the orchestrator starts the worker thread."""
+        if self._state != JobState.IDLE:
+            raise RuntimeError(f"FlashJob cannot queue from state {self._state}")
+        self._state = JobState.QUEUED
+
     def run(self) -> FlashJobResult:
         """Start OpenOCD, stream logs, and map the exit to a terminal ``JobState``."""
         if self._state not in {JobState.IDLE, JobState.QUEUED}:

@@ -1,8 +1,9 @@
-"""CLI: flash one discovered ST-Link via OpenOCD.
+"""CLI: flash one or more discovered ST-Links via OpenOCD.
 
 Usage::
 
     python -m batch_stlink_flasher.flash --firmware app.elf --target target/stm32f1x.cfg
+    python -m batch_stlink_flasher.flash --firmware app.elf --all
     python -m batch_stlink_flasher.flash --firmware app.hex --dry-run
 """
 
@@ -17,15 +18,19 @@ from pathlib import Path
 from batch_stlink_flasher.flashing.job import FlashJob
 from batch_stlink_flasher.flashing.models import AdapterInfo, FlashConfig, JobState
 from batch_stlink_flasher.flashing.openocd import (
+    build_openocd_command,
     default_bin_base_address,
     format_command_for_shell,
 )
+from batch_stlink_flasher.flashing.orchestrator import FlashOrchestrator
 from batch_stlink_flasher.services.device_service import list_adapters
-from batch_stlink_flasher.util.ports import allocate_openocd_ports
+from batch_stlink_flasher.util.ports import allocate_openocd_ports_batch
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Flash one ST-Link target with OpenOCD")
+    parser = argparse.ArgumentParser(
+        description="Flash one or more ST-Link targets with OpenOCD"
+    )
     parser.add_argument("--firmware", "-f", required=True, type=Path, help="Firmware .elf/.hex/.bin")
     parser.add_argument(
         "--openocd",
@@ -58,18 +63,28 @@ def main(argv: list[str] | None = None) -> int:
         "--timeout",
         type=float,
         default=120.0,
-        help="Soft timeout seconds (default 120)",
+        help="Soft timeout seconds per job (default 120)",
     )
     parser.add_argument(
         "--dry-run",
         action="store_true",
-        help="Print the OpenOCD command and exit without running it",
+        help="Print the OpenOCD command(s) and exit without running",
     )
     parser.add_argument(
         "--adapter-index",
         type=int,
-        default=1,
-        help="1-based adapter index from discovery (default 1)",
+        default=None,
+        help="1-based adapter index from discovery (default 1 if neither --all nor list)",
+    )
+    parser.add_argument(
+        "--adapters",
+        default=None,
+        help="Comma-separated 1-based adapter indices (e.g. 1,2,3)",
+    )
+    parser.add_argument(
+        "--all",
+        action="store_true",
+        help="Flash all discovered adapters in parallel",
     )
     parser.add_argument("-v", "--verbose", action="store_true")
     args = parser.parse_args(argv)
@@ -106,48 +121,117 @@ def main(argv: list[str] | None = None) -> int:
         job_timeout_sec=args.timeout,
     )
 
-    adapters = list_adapters()
-    if not adapters:
+    all_adapters = list_adapters()
+    if not all_adapters:
         print("No ST-Link adapters found.", file=sys.stderr)
         return 1
-    if args.adapter_index < 1 or args.adapter_index > len(adapters):
-        print(
-            f"Adapter index {args.adapter_index} out of range (1..{len(adapters)})",
-            file=sys.stderr,
+
+    try:
+        selected = _select_adapters(
+            all_adapters,
+            all_flag=args.all,
+            adapter_index=args.adapter_index,
+            adapters_csv=args.adapters,
         )
+    except ValueError as exc:
+        print(str(exc), file=sys.stderr)
         return 1
 
-    adapter = adapters[args.adapter_index - 1]
-    _print_adapter(adapter)
+    for adapter in selected:
+        _print_adapter(adapter)
 
     if args.dry_run:
-        from batch_stlink_flasher.flashing.openocd import build_openocd_command
-
-        hla = adapter.hla_serial.strip() if adapter.multi_adapter_ok and adapter.hla_serial else None
-        argv_cmd = build_openocd_command(config, hla, allocate_openocd_ports())
-        print(format_command_for_shell(argv_cmd))
+        ports_list = allocate_openocd_ports_batch(len(selected))
+        for adapter, ports in zip(selected, ports_list, strict=True):
+            hla = (
+                adapter.hla_serial.strip()
+                if adapter.multi_adapter_ok and adapter.hla_serial
+                else None
+            )
+            if len(selected) > 1 and hla is None:
+                print(f"# skip {adapter.serial!r}: no usable HLA serial for parallel run")
+                continue
+            print(format_command_for_shell(build_openocd_command(config, hla, ports)))
         return 0
 
     assert openocd is not None
-    job = FlashJob(
-        adapter,
+
+    if len(selected) == 1:
+        job = FlashJob(
+            selected[0],
+            config,
+            on_line=lambda line: print(line, flush=True),
+        )
+        result = job.run()
+        print(
+            f"\nResult: {result.state.value}  exit={result.exit_code}  "
+            f"elapsed={result.elapsed_sec:.1f}s",
+            flush=True,
+        )
+        if result.error_summary:
+            print(f"Summary: {result.error_summary}", file=sys.stderr)
+        if result.state == JobState.SUCCEEDED:
+            return 0
+        if result.state == JobState.CANCELLED:
+            return 130
+        return 1
+
+    orch = FlashOrchestrator(
+        selected,
         config,
-        on_line=lambda line: print(line, flush=True),
+        on_line=lambda adapter, line: print(f"[{adapter.serial}] {line}", flush=True),
+        on_job_done=lambda adapter, result: print(
+            f"[{adapter.serial}] done: {result.state.value}"
+            + (f" ({result.error_summary})" if result.error_summary else ""),
+            flush=True,
+        ),
     )
-    result = job.run()
+    summary = orch.run()
     print(
-        f"\nResult: {result.state.value}  exit={result.exit_code}  "
-        f"elapsed={result.elapsed_sec:.1f}s",
+        f"\nSummary: {summary.succeeded} succeeded / {summary.failed} failed / "
+        f"{summary.cancelled} cancelled (of {summary.total})",
         flush=True,
     )
-    if result.error_summary:
-        print(f"Summary: {result.error_summary}", file=sys.stderr)
-
-    if result.state == JobState.SUCCEEDED:
+    if summary.all_succeeded:
         return 0
-    if result.state == JobState.CANCELLED:
+    if summary.cancelled and summary.succeeded + summary.failed == 0:
         return 130
     return 1
+
+
+def _select_adapters(
+    all_adapters: list[AdapterInfo],
+    *,
+    all_flag: bool,
+    adapter_index: int | None,
+    adapters_csv: str | None,
+) -> list[AdapterInfo]:
+    modes = sum(1 for x in (all_flag, adapter_index is not None, adapters_csv) if x)
+    if modes > 1:
+        raise ValueError("use only one of --all, --adapter-index, or --adapters")
+
+    if all_flag:
+        return list(all_adapters)
+
+    if adapters_csv:
+        indices: list[int] = []
+        for part in adapters_csv.split(","):
+            part = part.strip()
+            if not part:
+                continue
+            indices.append(int(part))
+        if not indices:
+            raise ValueError("--adapters was empty")
+        return [_by_index(all_adapters, i) for i in indices]
+
+    index = 1 if adapter_index is None else adapter_index
+    return [_by_index(all_adapters, index)]
+
+
+def _by_index(adapters: list[AdapterInfo], index: int) -> AdapterInfo:
+    if index < 1 or index > len(adapters):
+        raise ValueError(f"Adapter index {index} out of range (1..{len(adapters)})")
+    return adapters[index - 1]
 
 
 def _resolve_openocd(explicit: str | None) -> str | None:

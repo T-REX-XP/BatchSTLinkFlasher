@@ -14,14 +14,22 @@ from batch_stlink_flasher.flashing.openocd import (
     format_command_for_shell,
     summarize_openocd_error,
 )
+from batch_stlink_flasher.flashing.orchestrator import (
+    AdapterJobResult,
+    FlashOrchestrator,
+    OrchestratorSummary,
+)
 
 __all__ = [
     "AdapterInfo",
+    "AdapterJobResult",
     "FlashConfig",
     "FlashJob",
     "FlashJobResult",
+    "FlashOrchestrator",
     "JobState",
     "OpenOcdPorts",
+    "OrchestratorSummary",
     "build_openocd_command",
     "build_program_command",
     "default_bin_base_address",

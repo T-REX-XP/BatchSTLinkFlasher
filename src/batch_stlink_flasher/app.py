@@ -20,9 +20,9 @@ def run() -> int:
         "What works now:\n"
         "  pytest\n"
         "  python -m batch_stlink_flasher.discover\n"
-        "  python -m batch_stlink_flasher.flash --firmware FILE --target CFG\n"
+        "  python -m batch_stlink_flasher.flash --firmware FILE --target CFG [--all]\n"
         "\n"
-        "Next: Phase 4 (parallel orchestrator) - see docs/plan.md\n",
+        "Next: Phase 5 (desktop UI) - see docs/plan.md\n",
         file=sys.stderr,
     )
     return 2
