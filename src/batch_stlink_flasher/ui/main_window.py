@@ -150,14 +150,21 @@ class MainWindow(QMainWindow):
 
         self.tools_summary = QLabel()
         self.tools_summary.setObjectName("toolsSummary")
-        self.tools_summary.setWordWrap(True)
+        self.tools_summary.setWordWrap(False)
+        self.tools_summary.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
+        self.tools_summary.setMinimumWidth(120)
 
         config_pane = QWidget()
+        config_pane.setObjectName("configPane")
+        config_pane.setSizePolicy(
+            QSizePolicy.Policy.Preferred,
+            QSizePolicy.Policy.Minimum,
+        )
         config_layout = QVBoxLayout(config_pane)
         config_layout.setContentsMargins(8, 4, 8, 4)
         config_layout.setSpacing(4)
         config_layout.addWidget(self.config_panel)
-        config_layout.addWidget(self.tools_summary)
+        config_pane.setMinimumHeight(max(120, self.config_panel.sizeHint().height() + 16))
 
         log_pane = QWidget()
         log_layout = QVBoxLayout(log_pane)
@@ -167,14 +174,14 @@ class MainWindow(QMainWindow):
 
         self.main_splitter = QSplitter(Qt.Orientation.Vertical)
         self.main_splitter.setObjectName("mainSplitter")
-        self.main_splitter.setChildrenCollapsible(True)
+        self.main_splitter.setChildrenCollapsible(False)
         self.main_splitter.addWidget(devices_pane)
         self.main_splitter.addWidget(config_pane)
         self.main_splitter.addWidget(log_pane)
         self.main_splitter.setStretchFactor(0, 5)
-        self.main_splitter.setStretchFactor(1, 2)
+        self.main_splitter.setStretchFactor(1, 0)
         self.main_splitter.setStretchFactor(2, 3)
-        self.main_splitter.setSizes([280, 150, 200])
+        self.main_splitter.setSizes([280, 140, 200])
 
         container = QWidget()
         root = QVBoxLayout(container)
@@ -184,6 +191,7 @@ class MainWindow(QMainWindow):
 
         status = QStatusBar()
         self.setStatusBar(status)
+        status.addWidget(self.tools_summary, 1)
         status.addPermanentWidget(self.summary_label)
         status.showMessage("Ready — Refresh to scan for ST-Links")
 
@@ -306,8 +314,12 @@ class MainWindow(QMainWindow):
         scripts = self._settings.scripts_search_path.strip()
         scripts_bit = f" · scripts: {scripts}" if scripts else ""
         self.tools_summary.setText(
-            f"OpenOCD: {openocd} · {iface} · timeout {timeout:g}s{scripts_bit}  "
-            f"(Edit → Settings)"
+            f"OpenOCD: {openocd} · {iface} · {timeout:g}s{scripts_bit}"
+        )
+        self.tools_summary.setToolTip(
+            f"OpenOCD: {openocd}\n{iface}\ntimeout {timeout:g}s"
+            + (f"\nscripts: {scripts}" if scripts else "")
+            + "\n(Edit → Settings)"
         )
 
     def set_theme_mode(self, mode: ThemeMode | str) -> None:
@@ -363,7 +375,7 @@ class MainWindow(QMainWindow):
 
     def _reset_layout(self) -> None:
         self.resize(960, 640)
-        self.main_splitter.setSizes([280, 120, 200])
+        self.main_splitter.setSizes([280, 140, 200])
         self.device_table._last_width_bucket = None  # noqa: SLF001
         self.device_table.apply_width_layout(self.device_table.viewport().width())
         self.statusBar().showMessage("Layout reset")
@@ -729,11 +741,27 @@ class MainWindow(QMainWindow):
             "View → Theme — System / Light / Dark",
         )
 
+    def _flash_in_progress(self) -> bool:
+        return self._flash is not None and self._flash.isRunning()
+
     def closeEvent(self, event: QCloseEvent) -> None:
+        if self._flash_in_progress():
+            answer = QMessageBox.question(
+                self,
+                "Flash in progress",
+                "A flash is still running.\n\n"
+                "Closing will cancel OpenOCD jobs. Quit anyway?",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                QMessageBox.StandardButton.No,
+            )
+            if answer != QMessageBox.StandardButton.Yes:
+                event.ignore()
+                return
+
         self._settings = self._current_settings()
         save_settings(self._settings)
         self._save_ui_state()
-        if self._flash is not None and self._flash.isRunning():
+        if self._flash_in_progress():
             self._flash.cancel()
             self._flash.wait(3000)
         event.accept()

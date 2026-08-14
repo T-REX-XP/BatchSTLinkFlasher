@@ -26,6 +26,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- Config pane no longer overlaps BIN base with the OpenOCD summary (summary moved to status bar; splitter cannot collapse the form)
+- Closing while a flash is running asks for confirmation before cancelling jobs and quitting
 - Browse dialogs use shared file masks (firmware ``*.elf/hex/bin``, OpenOCD ``openocd.exe``, configs ``*.cfg``, log export)
 - Browse buttons: Windows-style ``…`` ellipsis controls (no folder icons / custom glyphs)
 - Dark theme: Settings / dialogs no longer show white panes with light-on-light labels (Fusion QPalette + tab/combo styles)

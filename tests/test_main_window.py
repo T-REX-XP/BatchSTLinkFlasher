@@ -336,3 +336,52 @@ def test_identify_starts_worker(window: MainWindow, monkeypatch: pytest.MonkeyPa
     window._on_identify_failed("nope")  # noqa: SLF001
     window._on_identify_finished()  # noqa: SLF001
     assert window.identify_btn.isEnabled()
+
+
+def test_close_while_flashing_asks_confirmation(
+    window: MainWindow, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from PySide6.QtGui import QCloseEvent
+    from PySide6.QtWidgets import QMessageBox
+
+    class _Worker:
+        def __init__(self):
+            self._running = True
+            self.cancelled = False
+
+        def isRunning(self):
+            return self._running
+
+        def cancel(self):
+            self.cancelled = True
+            self._running = False
+
+        def wait(self, _ms=None):
+            return True
+
+    worker = _Worker()
+    window._flash = worker  # noqa: SLF001
+    answers = [QMessageBox.StandardButton.No, QMessageBox.StandardButton.Yes]
+
+    def _question(*_a, **_k):
+        return answers.pop(0)
+
+    monkeypatch.setattr(
+        "batch_stlink_flasher.ui.main_window.QMessageBox.question",
+        _question,
+    )
+    monkeypatch.setattr(
+        "batch_stlink_flasher.ui.main_window.save_settings",
+        lambda _s: None,
+    )
+
+    denied = QCloseEvent()
+    window.closeEvent(denied)
+    assert denied.isAccepted() is False
+    assert worker.cancelled is False
+
+    accepted = QCloseEvent()
+    window.closeEvent(accepted)
+    assert accepted.isAccepted() is True
+    assert worker.cancelled is True
+    window._flash = None  # noqa: SLF001 — allow fixture teardown close()
