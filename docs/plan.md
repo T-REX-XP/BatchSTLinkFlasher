@@ -14,11 +14,11 @@ Use this checklist in order. Check items off in PRs / commits. Update `CHANGELOG
 
 **Owner: implementer (you / agent)**
 
-- [ ] Implement `flashing/models.py` (`AdapterInfo`, `FlashConfig`, `JobState`)
-- [ ] Implement `flashing/openocd.py`: build argv list from config + serial + ports
-- [ ] Implement `util/ports.py`: allocate N free localhost ports
-- [ ] Unit tests: command builder for `.elf` / `.hex` / `.bin` (+ address)
-- [ ] Manual: run generated command once from a shell against one ST-Link
+- [x] Implement `flashing/models.py` (`AdapterInfo`, `FlashConfig`, `JobState`, `OpenOcdPorts`)
+- [x] Implement `flashing/openocd.py`: build argv list from config + serial + ports
+- [x] Implement `util/ports.py`: allocate N free localhost ports
+- [x] Unit tests: command builder for `.elf` / `.hex` / `.bin` (+ address)
+- [ ] Manual: run generated command once from a shell against one ST-Link (operator)
 
 **Done when**: a known-good OpenOCD command can be produced without UI.
 
@@ -72,3 +72,10 @@ Use this checklist in order. Check items off in PRs / commits. Update `CHANGELOG
 - `test: …` / `chore: …` as appropriate
 
 Keep commits small and aligned to one phase item when possible.
+
+
+
+implement build scripts to prepare dist
+implement github pipelines
+test coverage must be minimum 85%
+Implement autoinstaller script for the dependencies and documentation
