@@ -1,13 +1,15 @@
-"""OpenOCD argv builder (process runner arrives in Phase 3)."""
+"""OpenOCD argv builder and helpers."""
 
 from __future__ import annotations
 
+import re
 import shlex
 from pathlib import Path
 
 from batch_stlink_flasher.flashing.models import FlashConfig, OpenOcdPorts
 
 _DEFAULT_BIN_BASE = 0x08000000
+_ERROR_HINT = re.compile(r"(error|fail|couldn't|unable|timeout)", re.IGNORECASE)
 
 
 def build_program_command(firmware_path: Path, *, bin_base_address: int | None) -> str:
@@ -30,18 +32,16 @@ def build_program_command(firmware_path: Path, *, bin_base_address: int | None) 
 
 def build_openocd_command(
     config: FlashConfig,
-    hla_serial: str,
+    hla_serial: str | None,
     ports: OpenOcdPorts,
 ) -> list[str]:
     """
     Build an argv list suitable for ``subprocess`` / ``QProcess``.
 
-    Always binds ``hla_serial`` and unique ports so multiple adapters can run in parallel.
+    When ``hla_serial`` is empty/None, the serial bind is omitted (single-adapter /
+    clone probes with unusable USB serial). Unique ports are always set.
     """
     config.validate()
-    serial = hla_serial.strip()
-    if not serial:
-        raise ValueError("hla_serial is required")
 
     argv: list[str] = [str(config.openocd_path)]
 
@@ -54,8 +54,15 @@ def build_openocd_command(
             config.interface_cfg,
             "-f",
             config.target_cfg,
-            "-c",
-            f"hla_serial {serial}",
+        ]
+    )
+
+    serial = (hla_serial or "").strip()
+    if serial:
+        argv.extend(["-c", f"hla_serial {serial}"])
+
+    argv.extend(
+        [
             "-c",
             f"gdb_port {ports.gdb}",
             "-c",
@@ -77,6 +84,22 @@ def format_command_for_shell(argv: list[str]) -> str:
     return " ".join(shlex.quote(part) for part in argv)
 
 
+def summarize_openocd_error(log_lines: list[str], *, exit_code: int | None) -> str:
+    """Pick the most useful failure line from OpenOCD output."""
+    for line in reversed(log_lines):
+        text = line.strip()
+        if text and _ERROR_HINT.search(text):
+            return text
+    if log_lines:
+        return log_lines[-1].strip() or f"OpenOCD exited with code {exit_code}"
+    return f"OpenOCD exited with code {exit_code}"
+
+
+def default_bin_base_address() -> int:
+    """STM32 flash base commonly used when flashing raw ``.bin`` images."""
+    return _DEFAULT_BIN_BASE
+
+
 def _openocd_path_literal(path: Path) -> str:
     """
     Quote a filesystem path for embedding inside an OpenOCD ``-c`` Tcl string.
@@ -86,8 +109,3 @@ def _openocd_path_literal(path: Path) -> str:
     text = str(path)
     escaped = text.replace("\\", "\\\\").replace('"', '\\"')
     return f'"{escaped}"'
-
-
-def default_bin_base_address() -> int:
-    """STM32 flash base commonly used when flashing raw ``.bin`` images."""
-    return _DEFAULT_BIN_BASE

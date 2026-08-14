@@ -110,12 +110,13 @@ def test_build_openocd_command_includes_scripts_search_path(
     assert argv[1:3] == ["-s", str(scripts)]
 
 
-def test_build_openocd_command_rejects_empty_serial(
+def test_build_openocd_command_omits_empty_serial(
     tmp_path: Path, ports: OpenOcdPorts
 ) -> None:
     cfg = _config(tmp_path, "app.elf")
-    with pytest.raises(ValueError, match="hla_serial"):
-        build_openocd_command(cfg, "  ", ports)
+    argv = build_openocd_command(cfg, "  ", ports)
+    assert not any(isinstance(a, str) and a.startswith("hla_serial") for a in argv)
+    assert "gdb_port 3333" in argv
 
 
 def test_build_openocd_command_rejects_bin_without_address(

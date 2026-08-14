@@ -25,6 +25,7 @@ dev = [
 [project.scripts]
 batch-stlink-flasher = "batch_stlink_flasher.__main__:main"
 batch-stlink-discover = "batch_stlink_flasher.discover:main"
+batch-stlink-flash = "batch_stlink_flasher.flash:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

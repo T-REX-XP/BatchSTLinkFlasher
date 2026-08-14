@@ -90,8 +90,8 @@ No libusb / Zadig change is required for discovery.
 
 Clone ST-Link V2 devices often expose a placeholder serial (`%`). Those probes
 are still listed (`multi_adapter_ok=false`); OpenOCD can flash them when they
-are the **only** adapter (omit `hla_serial`). Genuine unique serials are required
-for parallel multi-adapter runs.
+are the **only** adapter (`FlashJob` / `build_openocd_command` omit `hla_serial`).
+Genuine unique serials are required for parallel multi-adapter runs.
 
 ### Fallback: pyusb
 

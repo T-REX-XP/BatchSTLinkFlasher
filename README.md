@@ -9,7 +9,8 @@ Desktop app to flash the **same firmware** onto **multiple STM32 targets in para
 | 0 Docs + skeleton | Done |
 | 1 Models + OpenOCD argv | Done |
 | 2 Device discovery | Done (`discover` CLI) |
-| 3–4 Flash jobs | Not started |
+| 3 Single-device flash | Done (`flash` CLI) |
+| 4 Parallel orchestrator | Not started |
 | 5 Desktop UI | Not started |
 | 6 Polish | Not started |
 
@@ -42,8 +43,12 @@ python -m venv .venv
 .venv\Scripts\activate
 pip install -e ".[dev]"
 pytest
-python -m batch_stlink_flasher.discover   # list ST-Links (works now)
+python -m batch_stlink_flasher.discover   # list ST-Links
+python -m batch_stlink_flasher.flash --firmware app.elf --target target/stm32f1x.cfg --dry-run
+python -m batch_stlink_flasher.flash --firmware app.elf --target target/stm32f1x.cfg
 ```
+
+Requires OpenOCD on `PATH` (or `--openocd`). Your clone probe with serial `%` is supported for **one** adapter (no `hla_serial`).
 
 `python -m batch_stlink_flasher` launches the UI — that arrives in **Phase 5**.
 

@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- Phase 3: `FlashJob` with streamed OpenOCD logs, timeout, and cancel
+- Phase 3: CLI `python -m batch_stlink_flasher.flash` (supports `--dry-run`)
+- OpenOCD command builder omits `hla_serial` when adapter has no usable serial (clone `%`)
 - Phase 2: ST-Link discovery via `st-info --probe` with Windows PnP + pyusb fallbacks
 - Phase 2: HLA serial normalization (`util/hla_serial.py`) for OpenOCD
 - Phase 2: CLI `python -m batch_stlink_flasher.discover`
@@ -17,7 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - Phase 1: `AdapterInfo`, `FlashConfig`, `JobState`, `OpenOcdPorts` models
 - Phase 1: OpenOCD argv builder (`build_openocd_command`) for `.elf` / `.hex` / `.bin`
 - Phase 1: free TCP port allocation helpers for parallel OpenOCD instances
-- Unit tests for models, OpenOCD command building, port allocation, and discovery
+- Unit tests for models, OpenOCD command building, port allocation, discovery, and flash jobs
 - AI-ready requirements, architecture, plan, and OpenOCD integration docs under `docs/`
 - `AGENTS.md` for agent workflow
 - Python package skeleton `src/batch_stlink_flasher/` and `pyproject.toml`

@@ -19,9 +19,10 @@ def run() -> int:
         "Desktop UI is not implemented yet (Phase 5).\n"
         "What works now:\n"
         "  pytest\n"
-        "  python -m batch_stlink_flasher.discover   # list ST-Links\n"
+        "  python -m batch_stlink_flasher.discover\n"
+        "  python -m batch_stlink_flasher.flash --firmware FILE --target CFG\n"
         "\n"
-        "Next: Phase 3 (single-device flash job) - see docs/plan.md\n",
+        "Next: Phase 4 (parallel orchestrator) - see docs/plan.md\n",
         file=sys.stderr,
     )
     return 2

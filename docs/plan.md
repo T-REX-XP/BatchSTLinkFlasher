@@ -34,9 +34,10 @@ Use this checklist in order. Check items off in PRs / commits. Update `CHANGELOG
 
 ## Phase 3 — Single-device flash job
 
-- [ ] `FlashJob`: start process, stream lines, map exit → Succeeded/Failed/Cancelled
-- [ ] Soft timeout + kill
-- [ ] Headless test or script: flash one device from CLI args
+- [x] `FlashJob`: start process, stream lines, map exit → Succeeded/Failed/Cancelled
+- [x] Soft timeout + kill
+- [x] Headless CLI: `python -m batch_stlink_flasher.flash`
+- [ ] Manual: flash a real target once with OpenOCD installed (operator)
 
 **Done when**: one device flashes reliably from code (no UI).
 
