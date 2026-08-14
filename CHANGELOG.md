@@ -20,7 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - Three-step packaging: ``install_build_deps`` → ``build_app`` → ``build_installer`` (bundled OpenOCD, optional Setup.exe / zip)
 - Runtime dependency fetch ``scripts/fetch_runtime_deps.ps1`` / ``packaging/runtime-deps.json``
 - Auto-detect bundled OpenOCD under ``tools/openocd`` via ``bundled-tools.json``
-- Flat charcoal-tile app logo / multi-size ``app_icon.ico`` (``scripts/generate_app_icon.py``)
+- Fluent chip app logo / multi-size ``app_icon.ico`` (``scripts/generate_app_icon.py``)
 - Auto-incrementing build number on each ``build_app.ps1`` run (``packaging/version.json``)
 
 ### Fixed
@@ -30,6 +30,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - Frozen EXE ignored visible UI when ``QT_QPA_PLATFORM=offscreen`` was inherited from a test shell
 - Taskbar / Alt+Tab showed the Python host icon when running from source (AppUserModelID + early window icon)
 - ST-Link discovery: Config Manager presence (``DN_STARTED``); no PowerShell console flash
+- Corrupt multi-size ``app_icon.ico`` (Pillow writer) that made Setup.exe / Explorer icons look broken
+- Installer wizard now uses branded sidebar / small images alongside ``SetupIconFile``
 
 ### Changed
 
@@ -37,7 +39,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - Packaging: Setup.exe is required by default (``build_installer.ps1``); ``-InstallInno`` / ``-InstallSystemDeps`` can install Inno Setup; app build uses ``packaging/batch_stlink_flasher.spec``
 - README redesigned with badges, feature summary, and screenshot under ``docs/imgs/``
 - Documentation synced with current product (README, requirements, architecture, plan, packaging, scripts)
-- App logo: flat charcoal tile + chip; transparent outside rounded corners
+- App logo: Windows 11 Fluent chip mark with transparent corners (shared by EXE, About, Setup.exe)
 - Removed deprecated script aliases (``bootstrap``, ``build_windows``, ``build_full_installer``)
 - Packaging: OpenOCD bundled by ``build_installer.ps1``; ``Setup.exe`` skipped gracefully if Inno Setup is not installed
 

@@ -96,6 +96,13 @@ powershell -ExecutionPolicy Bypass -File scripts\create_release_tag.ps1 -Version
 
 ## Branding / icons
 
+Fluent chip mark under `src/batch_stlink_flasher/assets/`:
+
+- `app_icon_source.png` — master art (transparent corners applied on generate)
+- `logo.png` / `app_icon.png` — UI splash & About
+- `app_icon.ico` — Windows EXE / Setup.exe (multi-size PNG ICO)
+- `wizard_image.bmp` / `wizard_small.bmp` — Inno Setup wizard chrome
+
 ```powershell
 .\.venv\Scripts\python scripts\generate_app_icon.py
 ```

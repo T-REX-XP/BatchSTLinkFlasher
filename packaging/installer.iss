@@ -33,6 +33,8 @@ PrivilegesRequiredOverridesAllowed=dialog
 ArchitecturesInstallIn64BitMode=x64compatible
 UninstallDisplayIcon={app}\{#MyAppExeName}
 SetupIconFile=..\src\batch_stlink_flasher\assets\app_icon.ico
+WizardImageFile=..\src\batch_stlink_flasher\assets\wizard_image.bmp
+WizardSmallImageFile=..\src\batch_stlink_flasher\assets\wizard_small.bmp
 SetupLogging=yes
 
 [Languages]
