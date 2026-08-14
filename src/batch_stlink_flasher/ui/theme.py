@@ -2,14 +2,20 @@
 
 from __future__ import annotations
 
+import tempfile
 from dataclasses import dataclass
 from enum import Enum
+from pathlib import Path
 
-from PySide6.QtCore import QSize, Qt
-from PySide6.QtGui import QColor, QGuiApplication, QIcon, QPainter, QPalette, QPixmap
+from PySide6.QtCore import QPoint, QSize, Qt
+from PySide6.QtGui import QColor, QGuiApplication, QIcon, QPainter, QPalette, QPixmap, QPolygon
 from PySide6.QtWidgets import QApplication, QPushButton, QSizePolicy, QStyle, QWidget
 
 from batch_stlink_flasher.assets_util import asset_path
+
+# Cached painted chevrons for QComboBox::down-arrow (Fusion loses its arrow when
+# ::drop-down is restyled without an explicit image).
+_COMBO_ARROW_CACHE: dict[str, str] = {}
 
 # Kept for splash/back-compat imports (resolve to active dark palette tokens).
 ACCENT = "#2f9e88"
@@ -159,8 +165,33 @@ def resolve_palette(mode: ThemeMode | str | None) -> ThemePalette:
     return DARK if system_prefers_dark() else LIGHT
 
 
+def combo_down_arrow_url(color: str) -> str:
+    """Paint a small chevron PNG and return a POSIX path for stylesheet ``url()``."""
+    key = color.strip().lower().lstrip("#")
+    cached = _COMBO_ARROW_CACHE.get(key)
+    if cached and Path(cached).is_file():
+        return Path(cached).as_posix()
+
+    pix = QPixmap(12, 12)
+    pix.fill(Qt.GlobalColor.transparent)
+    painter = QPainter(pix)
+    painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+    painter.setPen(Qt.PenStyle.NoPen)
+    painter.setBrush(QColor(color))
+    painter.drawPolygon(QPolygon([QPoint(2, 4), QPoint(10, 4), QPoint(6, 9)]))
+    painter.end()
+
+    cache_dir = Path(tempfile.gettempdir()) / "batch_stlink_flasher"
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    path = cache_dir / f"combo_down_{key}.png"
+    pix.save(str(path), "PNG")
+    _COMBO_ARROW_CACHE[key] = str(path)
+    return path.as_posix()
+
+
 def app_stylesheet(palette: ThemePalette | None = None) -> str:
     p = palette or active_palette()
+    arrow = combo_down_arrow_url(p.text_muted)
     return f"""
     QWidget {{
         color: {p.text};
@@ -234,7 +265,7 @@ def app_stylesheet(palette: ThemePalette | None = None) -> str:
         background-color: {p.bg_input};
         border: 1px solid {p.border};
         border-radius: 5px;
-        padding: 3px 8px;
+        padding: 3px 28px 3px 8px;
         min-height: 24px;
         color: {p.text};
     }}
@@ -242,8 +273,17 @@ def app_stylesheet(palette: ThemePalette | None = None) -> str:
         border-color: {p.accent};
     }}
     QComboBox::drop-down {{
-        border: none;
+        subcontrol-origin: padding;
+        subcontrol-position: top right;
         width: 22px;
+        border: none;
+        border-left: 1px solid {p.border};
+        background: transparent;
+    }}
+    QComboBox::down-arrow {{
+        image: url({arrow});
+        width: 10px;
+        height: 10px;
     }}
     QComboBox QAbstractItemView {{
         background-color: {p.bg_elevated};

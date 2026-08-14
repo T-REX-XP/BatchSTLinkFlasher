@@ -48,6 +48,8 @@ def test_theme_loads(qapp: QApplication) -> None:
     apply_app_theme(qapp, ThemeMode.DARK)
     assert "primaryButton" in qapp.styleSheet()
     assert "QTabWidget::pane" in qapp.styleSheet()
+    assert "QComboBox::down-arrow" in qapp.styleSheet()
+    assert "image: url(" in qapp.styleSheet()
     assert active_palette().name == "dark"
     assert qapp.palette().color(QPalette.ColorRole.Window).name() == active_palette().bg
     apply_app_theme(qapp, ThemeMode.LIGHT)

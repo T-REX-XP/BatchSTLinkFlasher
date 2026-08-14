@@ -26,6 +26,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- Theme combo / ``QComboBox``: restore visible drop-down arrow (stylesheet was blanking Fusion’s indicator)
 - Browse ``…`` buttons: shared ``path_browse_row`` + identical ``#browseButton`` chrome on main window and Settings
 - Config form overlap: config is no longer a 3-way splitter pane (devices|bottom with fixed-height form + log); OpenOCD summary stays in the status bar; legacy splitter state discarded
 - Closing while a flash is running asks for confirmation before cancelling jobs and quitting
