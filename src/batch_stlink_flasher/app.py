@@ -39,16 +39,24 @@ def run(argv: list[str] | None = None) -> int:
     state["splash"] = splash
     splash.center_on_screen()
     splash.show()
+    splash.raise_()
     app.processEvents()
 
     def _open_main(adapters: list, error: str) -> None:
+        # Close splash first so the main window never appears underneath it.
+        splash.hide()
+        splash.close()
+        app.processEvents()
+
         window = MainWindow(initial_adapters=adapters, initial_scan_error=error or None)
         state["window"] = window
-        window.show()
-        window.raise_()
-        window.activateWindow()
-        # Keep splash visible briefly so the user can read the result, then close.
-        QTimer.singleShot(450, splash.close)
+        # Defer show one tick so splash teardown paints first.
+        def _show_main() -> None:
+            window.show()
+            window.raise_()
+            window.activateWindow()
+
+        QTimer.singleShot(0, _show_main)
 
     splash.scan_finished.connect(_open_main)
     splash.start_scan()

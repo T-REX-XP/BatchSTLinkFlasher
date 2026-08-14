@@ -62,10 +62,9 @@ def test_enumerate_stlink_registry(monkeypatch) -> None:
     from batch_stlink_flasher.services import windows_pnp
 
     class FakeKey:
-        def __init__(self, children=None, values=None, present=False):
+        def __init__(self, children=None, values=None):
             self.children = children or []
             self.values = values or {}
-            self.present = present
 
         def __enter__(self):
             return self
@@ -82,17 +81,14 @@ def test_enumerate_stlink_registry(monkeypatch) -> None:
                 "Mfg": "@oem.inf,%mfg%;STMicroelectronics",
                 "DeviceDesc": "desc;STM32 STLink",
             },
-            present=True,
         ),
-        rf"{windows_pnp._USB_ENUM_ROOT}\VID_0483&PID_3748\66FF55\Control": FakeKey(),
-        rf"{windows_pnp._USB_ENUM_ROOT}\VID_0483&PID_3748\OLD": FakeKey(present=False),
+        rf"{windows_pnp._USB_ENUM_ROOT}\VID_0483&PID_3748\OLD": FakeKey(),
         rf"{windows_pnp._USB_ENUM_ROOT}\VID_1234&PID_0001": FakeKey(children=[]),
     }
 
     def open_key(_hive, path):
         if path not in tree:
             raise OSError("missing")
-        # Opening ...\Control is presence check
         return tree[path]
 
     def enum_key(key, index):
@@ -108,12 +104,42 @@ def test_enumerate_stlink_registry(monkeypatch) -> None:
     monkeypatch.setattr(windows_pnp.winreg, "OpenKey", open_key)
     monkeypatch.setattr(windows_pnp.winreg, "EnumKey", enum_key)
     monkeypatch.setattr(windows_pnp.winreg, "QueryValueEx", query_value)
+    monkeypatch.setattr(
+        windows_pnp,
+        "_device_present",
+        lambda device_id: device_id.endswith(r"\66FF55"),
+    )
 
     rows = windows_pnp._enumerate_stlink_registry()  # noqa: SLF001
     assert len(rows) == 1
     assert rows[0]["DeviceID"].endswith(r"\66FF55")
     assert rows[0]["Name"] == "STM32 STLink"
     assert rows[0]["Manufacturer"] == "STMicroelectronics"
+
+
+def test_list_stlink_skips_composite_instance_ids(monkeypatch) -> None:
+    from batch_stlink_flasher.services import windows_pnp
+
+    monkeypatch.setattr(windows_pnp.sys, "platform", "win32")
+    monkeypatch.setattr(
+        windows_pnp,
+        "_enumerate_stlink_registry",
+        lambda: [
+            {
+                "Name": "ST-Link",
+                "Manufacturer": "ST",
+                "DeviceID": r"USB\VID_0483&PID_3748\%",
+            },
+            {
+                "Name": "Composite",
+                "Manufacturer": "ST",
+                "DeviceID": r"USB\VID_0483&PID_3748\5&28bd6581&0&6",
+            },
+        ],
+    )
+    devices = windows_pnp.list_stlink_pnp_devices()
+    assert len(devices) == 1
+    assert devices[0].usb_serial == "%"
 
 
 def test_hidden_subprocess_kwargs_has_startupinfo(monkeypatch) -> None:

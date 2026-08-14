@@ -1,7 +1,7 @@
 #Requires -Version 5.1
 <#
 .SYNOPSIS
-  Deprecated alias — use scripts\install_build_deps.ps1
+  Deprecated alias - use scripts\install_build_deps.ps1
 
 .DESCRIPTION
   Developer-oriented wrapper around install_build_deps.ps1 (runs tests, installs OpenOCD cache).

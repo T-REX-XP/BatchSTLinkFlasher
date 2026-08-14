@@ -1,7 +1,7 @@
 #Requires -Version 5.1
 <#
 .SYNOPSIS
-  Deprecated alias — use scripts\build_app.ps1
+  Deprecated alias - use scripts\build_app.ps1
 #>
 [CmdletBinding()]
 param(

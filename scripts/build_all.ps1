@@ -1,7 +1,7 @@
 #Requires -Version 5.1
 <#
 .SYNOPSIS
-  Convenience: run the full packaging pipeline (deps → app → installer).
+  Convenience: run the full packaging pipeline (deps -> app -> installer).
 
 .DESCRIPTION
   Equivalent to:
@@ -37,7 +37,7 @@ $ErrorActionPreference = "Stop"
 $Root = Split-Path -Parent $PSScriptRoot
 Set-Location $Root
 
-Write-Host "==> build_all: deps → app → installer" -ForegroundColor Cyan
+Write-Host "==> build_all: deps -> app -> installer" -ForegroundColor Cyan
 
 $depArgs = @()
 if ($InstallSystemDeps) { $depArgs += "-InstallSystemDeps" }

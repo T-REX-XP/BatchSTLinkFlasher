@@ -1,7 +1,7 @@
 #Requires -Version 5.1
 <#
 .SYNOPSIS
-  Step 2/3 — Build the Windows app (PyInstaller onedir).
+  Step 2/3 - Build the Windows app (PyInstaller onedir).
 
 .DESCRIPTION
   Produces dist\BatchSTLinkFlasher\BatchSTLinkFlasher.exe and supporting files.

@@ -1,7 +1,7 @@
 #Requires -Version 5.1
 <#
 .SYNOPSIS
-  Step 1/3 — Install build-time dependencies for Batch ST-Link Flasher.
+  Step 1/3 - Install build-time dependencies for Batch ST-Link Flasher.
 
 .DESCRIPTION
   Prepares the machine to *build* the app (not to run the operator EXE):
@@ -120,7 +120,7 @@ $iscc = Find-ISCC
 if ($iscc) {
     Write-Host "Inno Setup found: $iscc" -ForegroundColor Green
 } else {
-    Write-Host "Inno Setup (ISCC) not found — Setup.exe builds will be skipped until installed." -ForegroundColor Yellow
+    Write-Host "Inno Setup (ISCC) not found - Setup.exe builds will be skipped until installed." -ForegroundColor Yellow
     Write-Host "  https://jrsoftware.org/isinfo.php  or: choco install innosetup"
 }
 

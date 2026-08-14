@@ -1,7 +1,7 @@
 #Requires -Version 5.1
 <#
 .SYNOPSIS
-  Step 3/3 — Build the Windows installer that embeds the app (+ OpenOCD).
+  Step 3/3 - Build the Windows installer that embeds the app (+ OpenOCD).
 
 .DESCRIPTION
   Takes an existing dist\BatchSTLinkFlasher\ payload (from build_app.ps1) and:
@@ -134,7 +134,7 @@ if ($ZipPortable) {
 if (-not $SkipInno) {
     $iscc = Find-ISCC
     if (-not $iscc) {
-        Write-Host "Inno Setup (ISCC.exe) not found — Setup.exe skipped." -ForegroundColor Yellow
+        Write-Host "Inno Setup (ISCC.exe) not found - Setup.exe skipped." -ForegroundColor Yellow
         Write-Host "Install from https://jrsoftware.org/isinfo.php then re-run this script."
     } else {
         Write-Host "==> Compiling Inno Setup installer with $iscc" -ForegroundColor Cyan

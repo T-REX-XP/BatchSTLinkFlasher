@@ -26,6 +26,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- ST-Link discovery: use Config Manager presence (``DN_STARTED``) instead of unreliable ``Control`` registry key
+- Close splash before showing the main window
 - Root-cause: ST-Link discovery no longer spawns PowerShell (registry PnP); hides leftover console tools
 - Hide PowerShell / console flash during Windows ST-Link discovery and OpenOCD jobs
 
