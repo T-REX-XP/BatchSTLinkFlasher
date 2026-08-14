@@ -228,7 +228,7 @@ def test_main_window_builds(qapp: QApplication, monkeypatch) -> None:
     assert window.flash_btn.objectName() == "primaryButton"
     assert not window.flash_btn.icon().isNull()
     assert window._theme_actions  # noqa: SLF001
-    assert window.main_splitter.count() == 3
+    assert window.main_splitter.count() == 2
     assert "OpenOCD:" in window.tools_summary.text()
     window.set_theme_mode("light")
     assert window._current_settings().theme_mode == "light"  # noqa: SLF001

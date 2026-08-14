@@ -26,7 +26,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
-- Config pane no longer overlaps BIN base with the OpenOCD summary (summary moved to status bar; splitter cannot collapse the form)
+- Browse ``…`` buttons: shared ``path_browse_row`` + identical ``#browseButton`` chrome on main window and Settings
+- Config form overlap: config is no longer a 3-way splitter pane (devices|bottom with fixed-height form + log); OpenOCD summary stays in the status bar; legacy splitter state discarded
 - Closing while a flash is running asks for confirmation before cancelling jobs and quitting
 - Browse dialogs use shared file masks (firmware ``*.elf/hex/bin``, OpenOCD ``openocd.exe``, configs ``*.cfg``, log export)
 - Browse buttons: Windows-style ``…`` ellipsis controls (no folder icons / custom glyphs)
@@ -46,7 +47,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - README redesigned with badges, feature summary, and screenshot under ``docs/imgs/``
 - Documentation synced with current product (README, requirements, architecture, plan, packaging, scripts)
 - App logo: Windows 11 Fluent chip mark with transparent corners (shared by EXE, About, Setup.exe)
-- Compact laptop-friendly UI: 3-pane resizable splitter (devices / config / log), wrapping toolbar,
+- Compact laptop-friendly UI: devices/log splitter with fixed-height flash config,
   interactive device columns (hide PID/HLA when narrow), Settings dialog for tool prefs,
   persisted window/splitter/column layout (View → Reset layout)
 - Main config panel keeps firmware / target / BIN base; OpenOCD path, interface, scripts, timeout, and theme moved to Settings

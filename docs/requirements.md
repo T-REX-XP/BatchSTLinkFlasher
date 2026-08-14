@@ -88,7 +88,7 @@ Desktop application that flashes **the same firmware file** onto **1–N STM32 (
 | FR-UX-01 | Single main window: device list + config + start/cancel + logs | Must |
 | FR-UX-02 | Clear validation before Start (OpenOCD found, file exists, ≥1 device, target config set) | Must |
 | FR-UX-03 | Keyboard: Start / Cancel shortcuts documented in UI or Help | Could |
-| FR-UX-04 | Device list, config, and log panes are user-resizable (splitter); usable on small laptop screens | Should |
+| FR-UX-04 | Device list and log panes are user-resizable (splitter); flash config keeps a fixed natural height (no overlap) | Should |
 | FR-UX-05 | Device table columns are user-resizable; secondary columns may hide when the viewport is narrow | Should |
 | FR-UX-06 | Settings dialog for OpenOCD path, interface/scripts, job timeout, and theme (Edit → Settings / toolbar) | Must |
 

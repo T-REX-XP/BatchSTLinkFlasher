@@ -7,7 +7,7 @@ from enum import Enum
 
 from PySide6.QtCore import QSize, Qt
 from PySide6.QtGui import QColor, QGuiApplication, QIcon, QPainter, QPalette, QPixmap
-from PySide6.QtWidgets import QApplication, QPushButton, QStyle, QWidget
+from PySide6.QtWidgets import QApplication, QPushButton, QSizePolicy, QStyle, QWidget
 
 from batch_stlink_flasher.assets_util import asset_path
 
@@ -286,21 +286,32 @@ def app_stylesheet(palette: ThemePalette | None = None) -> str:
         border-color: {p.border_disabled};
         background-color: {p.bg_disabled};
     }}
-    /* Path-row ellipsis — Windows common-dialog style, not icon chrome */
+    /* Path-row ellipsis — same chrome as other buttons, fixed square hit target */
     QPushButton#browseButton {{
-        border-radius: 2px;
-        padding: 0px 0px;
-        min-width: 28px;
-        max-width: 32px;
+        background-color: {p.bg_elevated};
+        border: 1px solid {p.border};
+        border-radius: 6px;
+        padding: 0px;
+        margin: 0px;
+        min-width: 26px;
+        max-width: 26px;
         min-height: 26px;
         max-height: 26px;
         font-size: 14px;
         font-weight: 600;
-        letter-spacing: 0px;
+        color: {p.text};
     }}
     QPushButton#browseButton:hover {{
-        border-color: {p.border};
+        border-color: {p.accent};
         background-color: {p.bg_hover};
+    }}
+    QPushButton#browseButton:pressed {{
+        background-color: {p.bg_pressed};
+    }}
+    QPushButton#browseButton:disabled {{
+        color: {p.text_disabled};
+        border-color: {p.border_disabled};
+        background-color: {p.bg_disabled};
     }}
     QPushButton#primaryButton {{
         background-color: {p.accent};
@@ -552,19 +563,27 @@ def style_standard_icon(widget: QWidget, standard: QStyle.StandardPixmap) -> QIc
     return style.standardIcon(standard)
 
 
-def create_browse_button(parent: QWidget | None = None) -> QPushButton:
+def create_browse_button(
+    parent: QWidget | None = None,
+    *,
+    height: int = 26,
+) -> QPushButton:
     """
-    Classic Windows path-row browse control: square-ish button labeled ``…``.
+    Path-row browse control labeled ``…``.
 
-    Avoids OS folder bitmaps and custom icon glyphs — matches common-dialog UX.
+    Same fixed square size and objectName everywhere (main window + dialogs)
+    so app stylesheet ``QPushButton#browseButton`` applies identically.
     """
+    side = max(24, int(height))
     btn = QPushButton("…", parent)
     btn.setObjectName("browseButton")
     btn.setToolTip("Browse…")
     btn.setAccessibleName("Browse")
     btn.setAutoDefault(False)
     btn.setDefault(False)
-    btn.setFixedSize(30, 26)
+    btn.setFlat(False)
+    btn.setFixedSize(side, side)
+    btn.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
     btn.setFocusPolicy(Qt.FocusPolicy.TabFocus)
     return btn
 

@@ -148,23 +148,28 @@ class MainWindow(QMainWindow):
         devices_layout.addWidget(toolbar)
         devices_layout.addWidget(self.device_table, stretch=1)
 
+        # OpenOCD path summary lives only in the status bar — never in the
+        # form stack (that caused BIN-base / summary paint overlap).
         self.tools_summary = QLabel()
         self.tools_summary.setObjectName("toolsSummary")
         self.tools_summary.setWordWrap(False)
         self.tools_summary.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
-        self.tools_summary.setMinimumWidth(120)
+        self.tools_summary.setMinimumWidth(80)
 
+        self.config_panel.setSizePolicy(
+            QSizePolicy.Policy.Preferred,
+            QSizePolicy.Policy.Fixed,
+        )
         config_pane = QWidget()
         config_pane.setObjectName("configPane")
         config_pane.setSizePolicy(
             QSizePolicy.Policy.Preferred,
-            QSizePolicy.Policy.Minimum,
+            QSizePolicy.Policy.Fixed,
         )
         config_layout = QVBoxLayout(config_pane)
-        config_layout.setContentsMargins(8, 4, 8, 4)
-        config_layout.setSpacing(4)
+        config_layout.setContentsMargins(8, 6, 8, 6)
+        config_layout.setSpacing(0)
         config_layout.addWidget(self.config_panel)
-        config_pane.setMinimumHeight(max(120, self.config_panel.sizeHint().height() + 16))
 
         log_pane = QWidget()
         log_layout = QVBoxLayout(log_pane)
@@ -172,16 +177,24 @@ class MainWindow(QMainWindow):
         log_layout.setSpacing(4)
         log_layout.addWidget(self.log_view, stretch=1)
 
+        # Config is NOT a splitter child. A 3-way splitter was the root cause of
+        # overlap: restored sizes could shrink the middle pane below the form
+        # height, so widgets painted on top of each other.
+        bottom = QWidget()
+        bottom_layout = QVBoxLayout(bottom)
+        bottom_layout.setContentsMargins(0, 0, 0, 0)
+        bottom_layout.setSpacing(0)
+        bottom_layout.addWidget(config_pane)
+        bottom_layout.addWidget(log_pane, stretch=1)
+
         self.main_splitter = QSplitter(Qt.Orientation.Vertical)
         self.main_splitter.setObjectName("mainSplitter")
         self.main_splitter.setChildrenCollapsible(False)
         self.main_splitter.addWidget(devices_pane)
-        self.main_splitter.addWidget(config_pane)
-        self.main_splitter.addWidget(log_pane)
-        self.main_splitter.setStretchFactor(0, 5)
-        self.main_splitter.setStretchFactor(1, 0)
-        self.main_splitter.setStretchFactor(2, 3)
-        self.main_splitter.setSizes([280, 140, 200])
+        self.main_splitter.addWidget(bottom)
+        self.main_splitter.setStretchFactor(0, 3)
+        self.main_splitter.setStretchFactor(1, 2)
+        self.main_splitter.setSizes([320, 280])
 
         container = QWidget()
         root = QVBoxLayout(container)
@@ -355,9 +368,13 @@ class MainWindow(QMainWindow):
         state = q.value("ui/windowState")
         if isinstance(state, QByteArray) and not state.isEmpty():
             self.restoreState(state)
-        splitter = q.value("ui/mainSplitter")
+        splitter = q.value("ui/mainSplitterV2")
         if isinstance(splitter, QByteArray) and not splitter.isEmpty():
             self.main_splitter.restoreState(splitter)
+        # Drop legacy 3-pane splitter state that caused config overlap.
+        if q.contains("ui/mainSplitter"):
+            q.remove("ui/mainSplitter")
+            q.sync()
         widths = q.value("ui/deviceColumnWidths")
         if isinstance(widths, list) and widths:
             try:
@@ -369,13 +386,13 @@ class MainWindow(QMainWindow):
         q = self._ui_settings()
         q.setValue("ui/geometry", self.saveGeometry())
         q.setValue("ui/windowState", self.saveState())
-        q.setValue("ui/mainSplitter", self.main_splitter.saveState())
+        q.setValue("ui/mainSplitterV2", self.main_splitter.saveState())
         q.setValue("ui/deviceColumnWidths", self.device_table.column_widths())
         q.sync()
 
     def _reset_layout(self) -> None:
         self.resize(960, 640)
-        self.main_splitter.setSizes([280, 140, 200])
+        self.main_splitter.setSizes([320, 280])
         self.device_table._last_width_bucket = None  # noqa: SLF001
         self.device_table.apply_width_layout(self.device_table.viewport().width())
         self.statusBar().showMessage("Layout reset")
@@ -736,9 +753,8 @@ class MainWindow(QMainWindow):
             "Ctrl+, — Settings (OpenOCD / theme)\n"
             "Identify — blink COM LED on the checked adapter\n"
             "View → Reset layout — default splitter sizes\n"
-            "Drag splitter handles — resize devices / config / log\n"
-            "Drag column headers — resize device columns\n"
-            "View → Theme — System / Light / Dark",
+            "Drag splitter handle — resize devices / log\n"
+            "Drag column headers — resize device columns",
         )
 
     def _flash_in_progress(self) -> bool:

@@ -42,7 +42,7 @@ src/batch_stlink_flasher/
   assets_util.py
   assets/              # logo.png, app_icon.png/.ico, splash.png
   ui/
-    main_window.py     # 3-pane splitter (devices / config / log); compact laptop layout
+    main_window.py     # devices|log splitter; fixed-height flash config
     about_dialog.py
     splash_screen.py
     theme.py

@@ -10,7 +10,6 @@ from PySide6.QtWidgets import (
     QDialogButtonBox,
     QFileDialog,
     QFormLayout,
-    QHBoxLayout,
     QLineEdit,
     QTabWidget,
     QVBoxLayout,
@@ -19,7 +18,8 @@ from PySide6.QtWidgets import (
 
 from batch_stlink_flasher.services.settings import AppSettings
 from batch_stlink_flasher.ui.file_filters import OPENOCD_CFG_FILTER, openocd_executable_filter
-from batch_stlink_flasher.ui.theme import ThemeMode, create_browse_button, normalize_theme_mode
+from batch_stlink_flasher.ui.path_row import path_browse_row
+from batch_stlink_flasher.ui.theme import ThemeMode, normalize_theme_mode
 
 
 class SettingsDialog(QDialog):
@@ -30,19 +30,14 @@ class SettingsDialog(QDialog):
         self.setWindowTitle("Settings")
         self.setModal(True)
         self.setMinimumWidth(520)
+        self.setAutoFillBackground(True)
 
         self.openocd_edit = QLineEdit()
         self.interface_edit = QLineEdit()
         self.scripts_edit = QLineEdit()
         self.timeout_edit = QLineEdit()
-        for edit in (
-            self.openocd_edit,
-            self.interface_edit,
-            self.scripts_edit,
-            self.timeout_edit,
-        ):
-            edit.setMinimumHeight(26)
-            edit.setClearButtonEnabled(True)
+        self.timeout_edit.setMinimumHeight(26)
+        self.timeout_edit.setClearButtonEnabled(True)
 
         self.theme_combo = QComboBox()
         self.theme_combo.addItem("System default", ThemeMode.SYSTEM.value)
@@ -50,20 +45,22 @@ class SettingsDialog(QDialog):
         self.theme_combo.addItem("Dark", ThemeMode.DARK.value)
 
         tools = QWidget()
+        tools.setAutoFillBackground(True)
         tools_form = QFormLayout(tools)
         tools_form.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.ExpandingFieldsGrow)
-        tools_form.addRow("OpenOCD:", self._with_browse(self.openocd_edit, self._browse_openocd))
+        tools_form.addRow("OpenOCD:", path_browse_row(self.openocd_edit, self._browse_openocd))
         tools_form.addRow(
             "Interface cfg:",
-            self._with_browse(self.interface_edit, self._browse_interface),
+            path_browse_row(self.interface_edit, self._browse_interface),
         )
         tools_form.addRow(
             "Scripts (-s):",
-            self._with_browse(self.scripts_edit, self._browse_scripts, dir_mode=True),
+            path_browse_row(self.scripts_edit, self._browse_scripts),
         )
         tools_form.addRow("Timeout (s):", self.timeout_edit)
 
         appearance = QWidget()
+        appearance.setAutoFillBackground(True)
         appearance_form = QFormLayout(appearance)
         appearance_form.addRow("Theme:", self.theme_combo)
 
@@ -111,18 +108,6 @@ class SettingsDialog(QDialog):
             job_timeout_sec=timeout,
             theme_mode=normalize_theme_mode(theme).value,
         )
-
-    def _with_browse(self, edit: QLineEdit, handler, *, dir_mode: bool = False) -> QWidget:
-        row = QWidget()
-        layout = QHBoxLayout(row)
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(4)
-        layout.addWidget(edit, stretch=1)
-        btn = create_browse_button()
-        btn.clicked.connect(handler)
-        layout.addWidget(btn)
-        row._dir_mode = dir_mode  # noqa: SLF001
-        return row
 
     @staticmethod
     def _dialog_start_path(current: str) -> str:

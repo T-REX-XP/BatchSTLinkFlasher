@@ -104,12 +104,30 @@ def test_create_browse_button(qapp: QApplication) -> None:
     from batch_stlink_flasher.ui.theme import create_browse_button
 
     apply_app_theme(qapp, "dark")
-    btn = create_browse_button()
+    btn = create_browse_button(height=26)
     assert btn.objectName() == "browseButton"
     assert btn.text() == "…"
     assert btn.icon().isNull()
+    assert btn.width() == 26 and btn.height() == 26
     assert "QPushButton#browseButton" in qapp.styleSheet()
     btn.close()
+
+
+def test_path_browse_row_uses_same_browse_button(qapp: QApplication) -> None:
+    from PySide6.QtWidgets import QLineEdit, QPushButton
+
+    from batch_stlink_flasher.ui.path_row import path_browse_row
+
+    apply_app_theme(qapp, "dark")
+    edit = QLineEdit()
+    row = path_browse_row(edit, lambda: None)
+    buttons = row.findChildren(QPushButton)
+    assert len(buttons) == 1
+    assert buttons[0].objectName() == "browseButton"
+    assert buttons[0].text() == "…"
+    assert buttons[0].size() == buttons[0].size()  # fixed
+    assert buttons[0].width() == edit.minimumHeight()
+    row.close()
 
 
 def test_theme_fallbacks(qapp: QApplication, monkeypatch, tmp_path) -> None:

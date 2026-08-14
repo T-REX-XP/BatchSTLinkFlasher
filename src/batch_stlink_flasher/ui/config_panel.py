@@ -7,7 +7,6 @@ from pathlib import Path
 from PySide6.QtWidgets import (
     QFileDialog,
     QFormLayout,
-    QHBoxLayout,
     QLineEdit,
     QSizePolicy,
     QWidget,
@@ -16,7 +15,7 @@ from PySide6.QtWidgets import (
 from batch_stlink_flasher.flashing.openocd import default_bin_base_address
 from batch_stlink_flasher.services.settings import AppSettings
 from batch_stlink_flasher.ui.file_filters import FIRMWARE_FILTER, OPENOCD_CFG_FILTER
-from batch_stlink_flasher.ui.theme import create_browse_button
+from batch_stlink_flasher.ui.path_row import path_browse_row
 
 
 class ConfigPanel(QWidget):
@@ -24,22 +23,20 @@ class ConfigPanel(QWidget):
 
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
-        self.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Maximum)
+        self.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
         self.firmware_edit = QLineEdit()
         self.target_edit = QLineEdit()
         self.bin_base_edit = QLineEdit()
-
-        for edit in (self.firmware_edit, self.target_edit, self.bin_base_edit):
-            edit.setMinimumHeight(26)
-            edit.setClearButtonEnabled(True)
+        self.bin_base_edit.setMinimumHeight(26)
+        self.bin_base_edit.setClearButtonEnabled(True)
 
         form = QFormLayout(self)
         form.setContentsMargins(0, 0, 0, 0)
         form.setHorizontalSpacing(8)
         form.setVerticalSpacing(4)
         form.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.ExpandingFieldsGrow)
-        form.addRow("Firmware:", self._with_browse(self.firmware_edit, self._browse_firmware))
-        form.addRow("Target cfg:", self._with_browse(self.target_edit, self._browse_target))
+        form.addRow("Firmware:", path_browse_row(self.firmware_edit, self._browse_firmware))
+        form.addRow("Target cfg:", path_browse_row(self.target_edit, self._browse_target))
         form.addRow("BIN base:", self.bin_base_edit)
 
     def apply_settings(self, settings: AppSettings) -> None:
@@ -63,17 +60,6 @@ class ConfigPanel(QWidget):
 
     def to_settings(self, base: AppSettings | None = None) -> AppSettings:
         return self.merge_into(base or AppSettings())
-
-    def _with_browse(self, edit: QLineEdit, handler) -> QWidget:
-        row = QWidget()
-        layout = QHBoxLayout(row)
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(4)
-        layout.addWidget(edit, stretch=1)
-        btn = create_browse_button()
-        btn.clicked.connect(handler)
-        layout.addWidget(btn)
-        return row
 
     @staticmethod
     def _dialog_start_path(current: str) -> str:
