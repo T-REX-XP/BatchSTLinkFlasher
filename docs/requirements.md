@@ -141,6 +141,7 @@ Do **not** change stack without updating `docs/architecture.md` and this section
 | `docs/dual-flash-strategy.md` | HLA parallel vs clone sequential + isolation |
 | `docs/plan.md` | Phased implementation checklist for agents/humans |
 | `docs/openocd-integration.md` | CLI recipes, ports, serial binding |
+| `docs/stlink-clone-serial.md` | Clone USB serial conflicts: approaches + community repos |
 | `docs/packaging.md` | PyInstaller, installer, CI / release |
 | `AGENTS.md` | How AI agents must work in this repo |
 | `CHANGELOG.md` | User-visible change history |

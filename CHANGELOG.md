@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
-- Identify LED: blink ST-Link COM LED via USB re-enumeration; auto UAC elevation when Windows denies PnP disable
+- Docs: ``docs/stlink-clone-serial.md`` — ST-Link V2 clone USB serial conflicts, recovery approaches, and community repos (from ``docs/stlink.pdf`` notes)
 - Device table shows USB port / hub (from Windows ``LocationInformation``)
 - Dual flash strategy: HLA originals flash in parallel; clones flash sequentially with Windows USB isolation
 - Docs: ``docs/dual-flash-strategy.md`` (flow / sequence / isolation diagrams)

@@ -9,7 +9,8 @@ This project is designed for AI-assisted implementation. Follow these rules.
 3. `docs/plan.md` — implement phases in order; do not skip to UI before Phase 3 works.
 4. `docs/openocd-integration.md` — OpenOCD CLI behavior.
 5. `docs/dual-flash-strategy.md` — parallel HLA vs sequential clone isolation.
-6. `CHANGELOG.md` — update under **Unreleased** when user-visible behavior changes.
+6. `docs/stlink-clone-serial.md` — clone USB serial conflicts, recovery repos / approaches (optional operator reading).
+7. `CHANGELOG.md` — update under **Unreleased** when user-visible behavior changes.
 
 If chat disagrees with these docs, **update the docs first** (or ask the user), then code.
 

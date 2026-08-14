@@ -141,6 +141,7 @@ Version source: `packaging/version.json` (build bumps on each `build_app.ps1` ru
 | [docs/requirements.md](docs/requirements.md) | Product contract (`FR-*` / `NFR-*`) |
 | [docs/architecture.md](docs/architecture.md) | Modules & threading |
 | [docs/dual-flash-strategy.md](docs/dual-flash-strategy.md) | Parallel HLA + sequential clones |
+| [docs/stlink-clone-serial.md](docs/stlink-clone-serial.md) | Clone USB serial conflicts, recovery repos |
 | [docs/openocd-integration.md](docs/openocd-integration.md) | OpenOCD CLI, ports, serials |
 | [docs/packaging.md](docs/packaging.md) | Build / installer / GitHub Release |
 | [docs/plan.md](docs/plan.md) | Implementation phases |

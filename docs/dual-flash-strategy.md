@@ -4,7 +4,8 @@ How Batch ST-Link Flasher flashes **several ST-Link programmers at once** when
 some probes have unique HLA serials and others are cheap clones that do not.
 
 **Related:** `docs/openocd-integration.md` (CLI / ports), `docs/architecture.md`
-(modules), `FR-FLASH-03` in `docs/requirements.md`.
+(modules), `docs/stlink-clone-serial.md` (making clones unique via firmware),
+`FR-FLASH-03` in `docs/requirements.md`.
 
 ---
 
