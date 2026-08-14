@@ -11,7 +11,7 @@ Desktop app to flash the **same firmware** onto **multiple STM32 targets in para
 | 2 Device discovery | Done (`discover` CLI) |
 | 3 Single-device flash | Done (`flash` CLI) |
 | 4 Parallel orchestrator | Done (`flash --all`) |
-| 5 Desktop UI | Not started |
+| 5 Desktop UI | Done (`python -m batch_stlink_flasher`) |
 | 6 Polish | Not started |
 
 See `docs/plan.md`.
@@ -47,11 +47,12 @@ python -m batch_stlink_flasher.discover   # list ST-Links
 python -m batch_stlink_flasher.flash --firmware app.elf --target target/stm32f1x.cfg --dry-run
 python -m batch_stlink_flasher.flash --firmware app.elf --target target/stm32f1x.cfg
 python -m batch_stlink_flasher.flash --firmware app.elf --all
+python -m batch_stlink_flasher
 ```
 
-Requires OpenOCD on `PATH` (or `--openocd`). Parallel `--all` needs unique HLA serials on each probe; a single clone with serial `%` still works alone.
+Requires OpenOCD on `PATH` (or set path in the UI). Parallel flashing needs unique HLA serials on each probe; a single clone with serial `%` still works alone.
 
-`python -m batch_stlink_flasher` launches the UI — that arrives in **Phase 5**.
+Shortcuts: **Ctrl+Return** flash, **Esc** cancel, **F5** refresh.
 
 ## Operator flow (target UX)
 

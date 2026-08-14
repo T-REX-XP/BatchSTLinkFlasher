@@ -1,3 +1,361 @@
-"""Main window and widgets — Phase 5."""
+"""Main application window."""
 
 from __future__ import annotations
+
+from pathlib import Path
+
+from PySide6.QtCore import Qt
+from PySide6.QtGui import QAction, QCloseEvent, QKeySequence
+from PySide6.QtWidgets import (
+    QHBoxLayout,
+    QLabel,
+    QMainWindow,
+    QMessageBox,
+    QPushButton,
+    QSplitter,
+    QStatusBar,
+    QVBoxLayout,
+    QWidget,
+)
+
+from batch_stlink_flasher import __version__
+from batch_stlink_flasher.flashing.models import FlashConfig, JobState
+from batch_stlink_flasher.flashing.openocd import default_bin_base_address
+from batch_stlink_flasher.flashing.orchestrator import OrchestratorSummary
+from batch_stlink_flasher.services.settings import (
+    load_settings,
+    resolve_openocd_path,
+    save_settings,
+)
+from batch_stlink_flasher.ui.config_panel import ConfigPanel
+from batch_stlink_flasher.ui.device_table import DeviceTable
+from batch_stlink_flasher.ui.log_view import LogView
+from batch_stlink_flasher.ui.workers import DiscoveryWorker, FlashWorker
+
+
+class MainWindow(QMainWindow):
+    def __init__(self) -> None:
+        super().__init__()
+        self.setWindowTitle(f"Batch ST-Link Flasher {__version__}")
+        self.resize(1100, 720)
+
+        self._discovery: DiscoveryWorker | None = None
+        self._flash: FlashWorker | None = None
+        self._running_count = 0
+        self._succeeded = 0
+        self._failed = 0
+        self._cancelled = 0
+
+        self.device_table = DeviceTable()
+        self.config_panel = ConfigPanel()
+        self.log_view = LogView()
+        self.summary_label = QLabel("Idle")
+        self.summary_label.setStyleSheet("font-weight: 600;")
+
+        self.refresh_btn = QPushButton("Refresh devices")
+        self.select_all_btn = QPushButton("Select all")
+        self.select_none_btn = QPushButton("Select none")
+        self.flash_btn = QPushButton("Flash")
+        self.cancel_btn = QPushButton("Cancel")
+        self.clear_log_btn = QPushButton("Clear log")
+        self.cancel_btn.setEnabled(False)
+
+        top_btns = QHBoxLayout()
+        top_btns.addWidget(self.refresh_btn)
+        top_btns.addWidget(self.select_all_btn)
+        top_btns.addWidget(self.select_none_btn)
+        top_btns.addStretch(1)
+        top_btns.addWidget(self.clear_log_btn)
+        top_btns.addWidget(self.cancel_btn)
+        top_btns.addWidget(self.flash_btn)
+
+        left = QWidget()
+        left_layout = QVBoxLayout(left)
+        left_layout.addLayout(top_btns)
+        left_layout.addWidget(self.device_table, stretch=2)
+        left_layout.addWidget(self.config_panel, stretch=0)
+        left_layout.addWidget(self.summary_label)
+
+        splitter = QSplitter(Qt.Orientation.Vertical)
+        splitter.addWidget(left)
+        splitter.addWidget(self.log_view)
+        splitter.setStretchFactor(0, 3)
+        splitter.setStretchFactor(1, 2)
+
+        container = QWidget()
+        root = QVBoxLayout(container)
+        root.addWidget(splitter)
+        self.setCentralWidget(container)
+
+        status = QStatusBar()
+        self.setStatusBar(status)
+        status.showMessage("Ready - Refresh devices to scan for ST-Links")
+
+        self._build_menu()
+        self._connect_signals()
+
+        self.config_panel.apply_settings(load_settings())
+        self.refresh_devices()
+
+    def _build_menu(self) -> None:
+        file_menu = self.menuBar().addMenu("&File")
+        refresh_action = QAction("Refresh devices", self)
+        refresh_action.setShortcut(QKeySequence.StandardKey.Refresh)
+        refresh_action.triggered.connect(self.refresh_devices)
+        file_menu.addAction(refresh_action)
+
+        flash_action = QAction("Flash", self)
+        flash_action.setShortcut(QKeySequence("Ctrl+Return"))
+        flash_action.triggered.connect(self.start_flash)
+        file_menu.addAction(flash_action)
+
+        cancel_action = QAction("Cancel", self)
+        cancel_action.setShortcut(QKeySequence("Esc"))
+        cancel_action.triggered.connect(self.cancel_flash)
+        file_menu.addAction(cancel_action)
+
+        file_menu.addSeparator()
+        quit_action = QAction("Quit", self)
+        quit_action.setShortcut(QKeySequence.StandardKey.Quit)
+        quit_action.triggered.connect(self.close)
+        file_menu.addAction(quit_action)
+
+        help_menu = self.menuBar().addMenu("&Help")
+        about = QAction("About", self)
+        about.triggered.connect(self._about)
+        help_menu.addAction(about)
+        shortcuts = QAction("Shortcuts", self)
+        shortcuts.triggered.connect(self._shortcuts)
+        help_menu.addAction(shortcuts)
+
+    def _connect_signals(self) -> None:
+        self.refresh_btn.clicked.connect(self.refresh_devices)
+        self.select_all_btn.clicked.connect(lambda: self.device_table.set_all_checked(True))
+        self.select_none_btn.clicked.connect(lambda: self.device_table.set_all_checked(False))
+        self.flash_btn.clicked.connect(self.start_flash)
+        self.cancel_btn.clicked.connect(self.cancel_flash)
+        self.clear_log_btn.clicked.connect(self.log_view.clear_log)
+
+    def refresh_devices(self) -> None:
+        if self._flash is not None and self._flash.isRunning():
+            self.statusBar().showMessage("Cannot refresh while flashing")
+            return
+        if self._discovery is not None and self._discovery.isRunning():
+            return
+
+        self.refresh_btn.setEnabled(False)
+        self.statusBar().showMessage("Scanning for ST-Links...")
+        worker = DiscoveryWorker()
+        worker.finished_ok.connect(self._on_discovery_ok)
+        worker.failed.connect(self._on_discovery_failed)
+        worker.finished.connect(lambda: self.refresh_btn.setEnabled(True))
+        self._discovery = worker
+        worker.start()
+
+    def _on_discovery_ok(self, adapters: list) -> None:
+        self.device_table.set_adapters(adapters)
+        self.statusBar().showMessage(f"Found {len(adapters)} adapter(s)")
+        self._update_summary_idle()
+
+    def _on_discovery_failed(self, message: str) -> None:
+        self.statusBar().showMessage(f"Discovery failed: {message}")
+        QMessageBox.warning(self, "Discovery failed", message)
+
+    def start_flash(self) -> None:
+        if self._flash is not None and self._flash.isRunning():
+            QMessageBox.information(self, "Busy", "A flash run is already in progress.")
+            return
+
+        settings = self.config_panel.to_settings()
+        save_settings(settings)
+        error = self._validate(settings)
+        if error:
+            QMessageBox.warning(self, "Cannot start", error)
+            return
+
+        adapters = self.device_table.selected_adapters()
+        config = self._build_flash_config(settings)
+        assert config is not None
+
+        self.log_view.append_line("--- flash start ---")
+        self.device_table.reset_statuses()
+        for adapter in adapters:
+            self.device_table.set_status_for_serial(adapter.serial, JobState.QUEUED.value)
+
+        self._running_count = len(adapters)
+        self._succeeded = 0
+        self._failed = 0
+        self._cancelled = 0
+        self._update_summary_counts()
+
+        self.flash_btn.setEnabled(False)
+        self.cancel_btn.setEnabled(True)
+        self.refresh_btn.setEnabled(False)
+
+        worker = FlashWorker(adapters, config)
+        worker.line_received.connect(self._on_flash_line)
+        worker.job_finished.connect(self._on_job_finished)
+        worker.run_finished.connect(self._on_run_finished)
+        worker.failed.connect(self._on_flash_failed)
+        self._flash = worker
+        worker.start()
+        self.statusBar().showMessage(f"Flashing {len(adapters)} device(s)...")
+
+    def cancel_flash(self) -> None:
+        if self._flash is not None and self._flash.isRunning():
+            self._flash.cancel()
+            self.statusBar().showMessage("Cancel requested...")
+            self.log_view.append_line("--- cancel requested ---")
+
+    def _on_flash_line(self, serial: str, line: str) -> None:
+        self.device_table.set_status_for_serial(serial, JobState.RUNNING.value)
+        self.log_view.append_device_line(serial, line)
+
+    def _on_job_finished(self, serial: str, state: str, error: str) -> None:
+        note = error if error else state
+        self.device_table.set_status_for_serial(serial, state, note)
+        if state == JobState.SUCCEEDED.value:
+            self._succeeded += 1
+        elif state == JobState.CANCELLED.value:
+            self._cancelled += 1
+        else:
+            self._failed += 1
+        self._running_count = max(0, self._running_count - 1)
+        self._update_summary_counts()
+
+    def _on_run_finished(self, summary: object) -> None:
+        assert isinstance(summary, OrchestratorSummary)
+        self.log_view.append_line(
+            f"--- done: {summary.succeeded} ok / {summary.failed} failed / "
+            f"{summary.cancelled} cancelled ---"
+        )
+        self.statusBar().showMessage(
+            f"Finished: {summary.succeeded} succeeded, {summary.failed} failed, "
+            f"{summary.cancelled} cancelled"
+        )
+        self._set_idle_controls()
+        self._update_summary_counts(
+            succeeded=summary.succeeded,
+            failed=summary.failed,
+            cancelled=summary.cancelled,
+            running=0,
+        )
+
+    def _on_flash_failed(self, message: str) -> None:
+        self.log_view.append_line(f"ERROR: {message}")
+        QMessageBox.critical(self, "Flash error", message)
+        self._set_idle_controls()
+        self.statusBar().showMessage(f"Flash error: {message}")
+
+    def _set_idle_controls(self) -> None:
+        self.flash_btn.setEnabled(True)
+        self.cancel_btn.setEnabled(False)
+        self.refresh_btn.setEnabled(True)
+
+    def _validate(self, settings) -> str | None:
+        openocd = resolve_openocd_path(settings.openocd_path)
+        if openocd is None:
+            return "OpenOCD not found. Set a valid path or add it to PATH."
+
+        firmware = Path(settings.last_firmware_path)
+        if not settings.last_firmware_path or not firmware.is_file():
+            return "Firmware file not found."
+
+        suffix = firmware.suffix.lower()
+        if suffix not in {".elf", ".hex", ".bin"}:
+            return "Firmware must be .elf, .hex, or .bin."
+
+        if not settings.interface_cfg:
+            return "Interface config is required (e.g. interface/stlink.cfg)."
+        if not settings.target_cfg:
+            return "Target config is required (e.g. target/stm32f1x.cfg)."
+
+        if suffix == ".bin":
+            try:
+                int(settings.bin_base_address, 0)
+            except ValueError:
+                return "BIN base address is invalid (example: 0x08000000)."
+
+        try:
+            if float(settings.job_timeout_sec) <= 0:
+                return "Timeout must be positive."
+        except (TypeError, ValueError):
+            return "Timeout must be a number."
+
+        selected = self.device_table.selected_adapters()
+        if not selected:
+            return "Select at least one adapter."
+
+        if len(selected) > 1:
+            bad = [a.serial for a in selected if not a.multi_adapter_ok or not a.hla_serial]
+            if bad:
+                return (
+                    "Multiple adapters selected, but these lack a usable HLA serial "
+                    f"for parallel flashing: {', '.join(bad)}. "
+                    "Uncheck them or flash one at a time."
+                )
+        return None
+
+    def _build_flash_config(self, settings) -> FlashConfig | None:
+        openocd = resolve_openocd_path(settings.openocd_path)
+        if openocd is None:
+            return None
+        firmware = Path(settings.last_firmware_path)
+        bin_base = None
+        if firmware.suffix.lower() == ".bin":
+            bin_base = int(settings.bin_base_address, 0)
+        scripts = Path(settings.scripts_search_path) if settings.scripts_search_path else None
+        return FlashConfig(
+            openocd_path=openocd,
+            firmware_path=firmware,
+            interface_cfg=settings.interface_cfg,
+            target_cfg=settings.target_cfg,
+            bin_base_address=bin_base,
+            scripts_search_path=scripts,
+            job_timeout_sec=float(settings.job_timeout_sec),
+        )
+
+    def _update_summary_idle(self) -> None:
+        n = len(self.device_table.adapters())
+        self.summary_label.setText(f"Devices: {n}  |  Idle")
+
+    def _update_summary_counts(
+        self,
+        *,
+        succeeded: int | None = None,
+        failed: int | None = None,
+        cancelled: int | None = None,
+        running: int | None = None,
+    ) -> None:
+        s = self._succeeded if succeeded is None else succeeded
+        f = self._failed if failed is None else failed
+        c = self._cancelled if cancelled is None else cancelled
+        r = self._running_count if running is None else running
+        self.summary_label.setText(
+            f"Running: {r}  |  Succeeded: {s}  |  Failed: {f}  |  Cancelled: {c}"
+        )
+
+    def _about(self) -> None:
+        QMessageBox.about(
+            self,
+            "About",
+            f"Batch ST-Link Flasher {__version__}\n\n"
+            "Parallel STM32 flashing via OpenOCD and ST-Link programmers.\n"
+            "See docs/requirements.md and docs/plan.md.",
+        )
+
+    def _shortcuts(self) -> None:
+        QMessageBox.information(
+            self,
+            "Shortcuts",
+            "Ctrl+Return — Start flash\n"
+            "Esc — Cancel\n"
+            "F5 / Refresh — Rescan devices",
+        )
+
+    def closeEvent(self, event: QCloseEvent) -> None:
+        save_settings(self.config_panel.to_settings())
+        if self._flash is not None and self._flash.isRunning():
+            self._flash.cancel()
+            self._flash.wait(3000)
+        event.accept()

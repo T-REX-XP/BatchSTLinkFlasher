@@ -53,11 +53,12 @@ Use this checklist in order. Check items off in PRs / commits. Update `CHANGELOG
 
 ## Phase 5 — Desktop UI
 
-- [ ] Main window layout per `FR-UX-01`
-- [ ] Wire discovery refresh, config panel, start/cancel
-- [ ] Per-device status + log view
-- [ ] Validation before Start (`FR-UX-02`)
-- [ ] Settings persistence
+- [x] Main window layout per `FR-UX-01`
+- [x] Wire discovery refresh, config panel, start/cancel
+- [x] Per-device status + log view
+- [x] Validation before Start (`FR-UX-02`)
+- [x] Settings persistence
+- [ ] Manual: run UI against real ST-Link + OpenOCD (operator)
 
 **Done when**: acceptance criteria in `docs/requirements.md` §7 pass.
 
