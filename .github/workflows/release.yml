@@ -49,82 +49,37 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Install package + packaging extras
-        run: |
-          python -m pip install -U pip
-          python -m pip install -e ".[dev,packaging]"
-
       - name: Sync version from tag
         shell: pwsh
         run: |
           powershell -NoProfile -ExecutionPolicy Bypass -File scripts\bump_version.ps1 -Set "${{ steps.ver.outputs.fourpart }}"
 
-      - name: Tests with coverage
-        run: |
-          python -m pytest -q --cov=batch_stlink_flasher --cov-report=term-missing --cov-fail-under=85
-
-      - name: Fetch OpenOCD runtime
+      - name: Install build deps
         shell: pwsh
         run: |
-          powershell -NoProfile -ExecutionPolicy Bypass -File scripts\fetch_runtime_deps.ps1
-
-      - name: Build Windows onedir (no bump)
-        shell: pwsh
-        run: |
-          powershell -NoProfile -ExecutionPolicy Bypass -File scripts\build_windows.ps1 -NoBump
-
-      - name: Bundle OpenOCD + portable zip
-        shell: pwsh
-        run: |
-          $Root = $PWD
-          $DistApp = Join-Path $Root "dist\BatchSTLinkFlasher"
-          $VendorOpenOcd = Join-Path $Root "vendor\runtime\openocd"
-          $toolsOpenOcd = Join-Path $DistApp "tools\openocd"
-          if (-not (Test-Path (Join-Path $DistApp "BatchSTLinkFlasher.exe"))) {
-            throw "Missing dist payload"
-          }
-          if (Test-Path $toolsOpenOcd) { Remove-Item $toolsOpenOcd -Recurse -Force }
-          New-Item -ItemType Directory -Force -Path (Split-Path $toolsOpenOcd) | Out-Null
-          Copy-Item $VendorOpenOcd $toolsOpenOcd -Recurse -Force
-
-          $manifest = Get-Content packaging\runtime-deps.json -Raw | ConvertFrom-Json
-          $ver = "${{ steps.ver.outputs.fourpart }}"
-          @{
-            AppId          = "BatchSTLinkFlasher"
-            Version        = $ver
-            BuiltAt        = (Get-Date).ToString("o")
-            OpenOcdExe     = "tools/openocd/bin/openocd.exe"
-            OpenOcdScripts = "tools/openocd/share/openocd/scripts"
-            OpenOcdVersion = [string]$manifest.openocd.version
-            OpenOcdName    = [string]$manifest.openocd.name
-          } | ConvertTo-Json | Set-Content (Join-Path $DistApp "bundled-tools.json") -Encoding UTF8
-
-          @{
-            AppId   = "BatchSTLinkFlasher"
-            Version = $ver
-            BuiltAt = (Get-Date).ToString("o")
-          } | ConvertTo-Json | Set-Content (Join-Path $DistApp "build-info.json") -Encoding UTF8
-
-          Copy-Item scripts\uninstall.ps1 (Join-Path $DistApp "uninstall.ps1") -Force
-
-          $zip = Join-Path $Root ("dist\BatchSTLinkFlasher-{0}-portable.zip" -f $ver)
-          if (Test-Path $zip) { Remove-Item $zip -Force }
-          Compress-Archive -Path (Join-Path $DistApp "*") -DestinationPath $zip -Force
-          Write-Host "Portable zip: $zip"
+          powershell -NoProfile -ExecutionPolicy Bypass -File scripts\install_build_deps.ps1 -SkipTests
 
       - name: Install Inno Setup
         shell: pwsh
         run: |
           choco install innosetup -y --no-progress
-          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
-          if (-not (Test-Path $iscc)) { throw "ISCC.exe not found after Inno Setup install" }
-          Write-Host "ISCC: $iscc"
+          if (-not (Test-Path "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe")) {
+            throw "ISCC.exe not found after Inno Setup install"
+          }
 
-      - name: Compile Setup.exe
+      - name: Tests with coverage
+        run: |
+          .\.venv\Scripts\python -m pytest -q --cov=batch_stlink_flasher --cov-report=term-missing --cov-fail-under=85
+
+      - name: Build app
         shell: pwsh
         run: |
-          & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" packaging\installer.iss
-          Get-ChildItem dist -Filter "*Setup*.exe" | ForEach-Object { Write-Host $_.FullName }
+          powershell -NoProfile -ExecutionPolicy Bypass -File scripts\build_app.ps1 -NoBump
+
+      - name: Build installer (zip + Setup.exe)
+        shell: pwsh
+        run: |
+          powershell -NoProfile -ExecutionPolicy Bypass -File scripts\build_installer.ps1 -ZipPortable
 
       - name: Collect release notes from CHANGELOG
         id: notes

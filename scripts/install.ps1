@@ -11,7 +11,7 @@
     %LOCALAPPDATA%\Programs\BatchSTLinkFlasher
 
 .PARAMETER Build
-  Run scripts\build_windows.ps1 before installing.
+  Run scripts\build_app.ps1 before installing.
 
 .PARAMETER SourceDir
   Path to the BatchSTLinkFlasher onedir folder (default: dist\BatchSTLinkFlasher).
@@ -121,14 +121,14 @@ Ensure-AdminIfNeeded
 
 if ($Build) {
     Write-Host "==> Building distribution first"
-    & (Join-Path $PSScriptRoot "build_windows.ps1")
+    & (Join-Path $PSScriptRoot "build_app.ps1")
 }
 
 if (-not $SourceDir) {
     $SourceDir = Join-Path $Root "dist\$AppId"
 }
 if (-not (Test-Path (Join-Path $SourceDir $ExeName))) {
-    throw "Missing $ExeName under '$SourceDir'. Run with -Build or scripts\build_windows.ps1 first."
+    throw "Missing $ExeName under '$SourceDir'. Run with -Build or scripts\build_app.ps1 first."
 }
 
 $Version = Resolve-InstallVersion -Source $SourceDir
@@ -210,7 +210,7 @@ if (Test-Path $OpenOcdBundled) {
         Write-Host "OpenOCD found on PATH: $($OpenOcd.Source)" -ForegroundColor Green
     } else {
         Write-Host "NOTE: OpenOCD was not bundled and not found on PATH." -ForegroundColor Yellow
-        Write-Host "      Rebuild with: powershell -File scripts\build_full_installer.ps1"
+        Write-Host "      Rebuild with: powershell -File scripts\build_all.ps1"
     }
 }
 

@@ -2,7 +2,7 @@
 
 Desktop app to flash the **same firmware** onto **multiple STM32 targets in parallel**, each via its own **ST-Link V2** programmer, driven by **OpenOCD**.
 
-**Version:** see `packaging/version.json` (auto-increments build on each `build_windows.ps1` run)
+**Version:** see `packaging/version.json` (auto-increments build on each `build_app.ps1` run)
 
 ## Status
 
@@ -26,7 +26,8 @@ See `docs/plan.md`.
 | [docs/architecture.md](docs/architecture.md) | Design & module layout |
 | [docs/plan.md](docs/plan.md) | Phased implementation checklist |
 | [docs/openocd-integration.md](docs/openocd-integration.md) | OpenOCD multi-adapter notes |
-| [docs/packaging.md](docs/packaging.md) | Bootstrap, PyInstaller, CI |
+| [docs/packaging.md](docs/packaging.md) | Packaging overview |
+| [scripts/README.md](scripts/README.md) | Build scripts (deps → app → installer) |
 | [AGENTS.md](AGENTS.md) | Rules for AI agents |
 | [CHANGELOG.md](CHANGELOG.md) | Change history |
 
@@ -42,13 +43,13 @@ See `docs/plan.md`.
 
 - Windows 10/11
 - No system Python needed (embedded in the EXE)
-- OpenOCD is bundled when you use `scripts\build_full_installer.ps1`
+- OpenOCD is bundled when you use `scripts\build_installer.ps1`
 - Optional: ST official ST-Link USB driver
 
 ## Quick install (Windows)
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File scripts\bootstrap.ps1
+powershell -ExecutionPolicy Bypass -File scripts\install_build_deps.ps1
 .\.venv\Scripts\activate
 python -m batch_stlink_flasher
 ```
@@ -73,17 +74,22 @@ Shortcuts: **Ctrl+Return** flash, **Esc** cancel, **Ctrl+S** export log, **F5** 
 ## Build distributable / installer
 
 ```powershell
-# Full installer: app + OpenOCD (+ optional winget VC++ / Python for the build PC)
-powershell -ExecutionPolicy Bypass -File scripts\build_full_installer.ps1 -ZipPortable -InstallSystemDeps
+# 1) build deps  2) app  3) Setup.exe / zip  (see scripts/README.md)
+powershell -ExecutionPolicy Bypass -File scripts\install_build_deps.ps1 -InstallSystemDeps
+powershell -ExecutionPolicy Bypass -File scripts\build_app.ps1
+powershell -ExecutionPolicy Bypass -File scripts\build_installer.ps1 -ZipPortable
 
-# Per-user install from an already-built dist (prefer full installer build first)
+# Or one-shot:
+powershell -ExecutionPolicy Bypass -File scripts\build_all.ps1 -ZipPortable -InstallSystemDeps
+
+# Install the built app for the current user
 powershell -ExecutionPolicy Bypass -File scripts\install.ps1 -DesktopShortcut -Force
 
 # Publish a GitHub Release from tag v0.1.0
 powershell -ExecutionPolicy Bypass -File scripts\create_release_tag.ps1 -Version 0.1.0 -Commit -Push
 ```
 
-See [docs/packaging.md](docs/packaging.md).
+See [scripts/README.md](scripts/README.md) and [docs/packaging.md](docs/packaging.md).
 
 ## Operator flow
 

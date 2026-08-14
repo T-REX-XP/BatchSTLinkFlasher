@@ -34,7 +34,7 @@ pytest
 python -m batch_stlink_flasher
 ```
 
-Coverage must stay ≥ **85%** (`--cov-fail-under=85`). Bootstrap: `scripts/bootstrap.ps1`.
+Coverage must stay ≥ **85%** (`--cov-fail-under=85`). Build deps: `scripts/install_build_deps.ps1`. Packaging steps: `scripts/README.md`.
 
 Release tags use `vMAJOR.MINOR.PATCH` (e.g. `v0.1.0`); see `scripts/create_release_tag.ps1` and `.github/workflows/release.yml`.
 

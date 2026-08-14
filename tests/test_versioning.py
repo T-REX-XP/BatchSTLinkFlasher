@@ -36,6 +36,6 @@ def test_pyproject_version_matches() -> None:
 def test_bump_scripts_exist() -> None:
     assert (ROOT / "scripts" / "bump_version.ps1").is_file()
     assert (ROOT / "scripts" / "version.ps1").is_file()
-    assert "Incrementing build version" in (ROOT / "scripts" / "build_windows.ps1").read_text(
+    assert "Incrementing build version" in (ROOT / "scripts" / "build_app.ps1").read_text(
         encoding="utf-8"
     )
