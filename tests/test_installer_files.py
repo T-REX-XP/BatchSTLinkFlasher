@@ -53,6 +53,32 @@ def test_inno_script_points_at_dist() -> None:
     assert r"..\dist\BatchSTLinkFlasher\*" in text
     assert "BatchSTLinkFlasher.exe" in text
     assert f'#define MyAppVersion "{expected}"' in text
+    assert "SetupIconFile=" in text
+    assert "app_icon.ico" in text
+    assert "WizardImageFile=" in text
+    assert "wizard_image.bmp" in text
+    assert "WizardSmallImageFile=" in text
+    assert "wizard_small.bmp" in text
+
+
+def test_app_icon_ico_is_valid_multisize() -> None:
+    import struct
+
+    ico = ROOT / "src" / "batch_stlink_flasher" / "assets" / "app_icon.ico"
+    assert ico.is_file()
+    data = ico.read_bytes()
+    reserved, typ, count = struct.unpack_from("<HHH", data, 0)
+    assert reserved == 0
+    assert typ == 1
+    assert count >= 4
+    offset = 6
+    for _ in range(count):
+        _w, _h, _c, _r, _planes, _bpp, size, off = struct.unpack_from("<BBBBHHII", data, offset)
+        assert size > 0
+        assert off + size <= len(data)
+        offset += 16
+    assert (ROOT / "src" / "batch_stlink_flasher" / "assets" / "wizard_image.bmp").is_file()
+    assert (ROOT / "src" / "batch_stlink_flasher" / "assets" / "wizard_small.bmp").is_file()
 
 
 def test_runtime_deps_manifest() -> None:

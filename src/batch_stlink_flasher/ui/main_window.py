@@ -4,16 +4,17 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import QByteArray, QSettings, Qt
 from PySide6.QtGui import QAction, QActionGroup, QCloseEvent, QKeySequence
 from PySide6.QtWidgets import (
     QApplication,
     QFileDialog,
-    QHBoxLayout,
+    QFrame,
     QLabel,
     QMainWindow,
     QMessageBox,
     QPushButton,
+    QSizePolicy,
     QSplitter,
     QStatusBar,
     QStyle,
@@ -25,6 +26,8 @@ from batch_stlink_flasher import __version__
 from batch_stlink_flasher.flashing.models import FlashConfig, JobState
 from batch_stlink_flasher.flashing.orchestrator import OrchestratorSummary
 from batch_stlink_flasher.services.settings import (
+    APP,
+    ORG,
     load_settings,
     resolve_openocd_path,
     save_settings,
@@ -32,6 +35,7 @@ from batch_stlink_flasher.services.settings import (
 from batch_stlink_flasher.ui.about_dialog import AboutDialog
 from batch_stlink_flasher.ui.config_panel import ConfigPanel
 from batch_stlink_flasher.ui.device_table import DeviceTable
+from batch_stlink_flasher.ui.flow_layout import FlowLayout
 from batch_stlink_flasher.ui.log_view import LogView
 from batch_stlink_flasher.ui.theme import (
     ThemeMode,
@@ -57,7 +61,8 @@ class MainWindow(QMainWindow):
         icon = load_app_icon()
         if not icon.isNull():
             self.setWindowIcon(icon)
-        self.resize(1100, 720)
+        self.setMinimumSize(720, 480)
+        self.resize(960, 640)
 
         self._discovery: DiscoveryWorker | None = None
         self._flash: FlashWorker | None = None
@@ -69,20 +74,25 @@ class MainWindow(QMainWindow):
         self._session = SessionLog()
 
         self.device_table = DeviceTable()
-        self.device_table.setAlternatingRowColors(True)
         self.config_panel = ConfigPanel()
         self.log_view = LogView()
+        self.log_view.setMinimumHeight(96)
         self.summary_label = QLabel("Idle")
         self.summary_label.setObjectName("summaryLabel")
 
-        self.refresh_btn = QPushButton("Refresh devices")
-        self.select_all_btn = QPushButton("Select all")
-        self.select_none_btn = QPushButton("Select none")
-        self.identify_btn = QPushButton("Identify LED")
+        self.refresh_btn = QPushButton("Refresh")
+        self.refresh_btn.setToolTip("Refresh devices (F5)")
+        self.select_all_btn = QPushButton("All")
+        self.select_all_btn.setToolTip("Select all adapters")
+        self.select_none_btn = QPushButton("None")
+        self.select_none_btn.setToolTip("Select none")
+        self.identify_btn = QPushButton("Identify")
+        self.identify_btn.setToolTip("Blink COM LED on the checked adapter")
         self.flash_btn = QPushButton("Flash")
         self.cancel_btn = QPushButton("Cancel")
         self.clear_log_btn = QPushButton("Clear log")
-        self.export_log_btn = QPushButton("Export log")
+        self.export_log_btn = QPushButton("Export")
+        self.export_log_btn.setToolTip("Export session log")
         self.cancel_btn.setEnabled(False)
 
         decorate_button(self.refresh_btn, standard=QStyle.StandardPixmap.SP_BrowserReload)
@@ -102,42 +112,66 @@ class MainWindow(QMainWindow):
         decorate_button(self.clear_log_btn, standard=QStyle.StandardPixmap.SP_DialogResetButton)
         decorate_button(self.export_log_btn, standard=QStyle.StandardPixmap.SP_DialogSaveButton)
 
-        top_btns = QHBoxLayout()
-        top_btns.setSpacing(8)
+        toolbar = QWidget()
+        toolbar.setObjectName("mainToolbar")
+        toolbar.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Maximum)
+        top_btns = FlowLayout(toolbar, margin=0, spacing=6)
         top_btns.addWidget(self.refresh_btn)
         top_btns.addWidget(self.select_all_btn)
         top_btns.addWidget(self.select_none_btn)
         top_btns.addWidget(self.identify_btn)
-        top_btns.addStretch(1)
+        # spacer-ish stretch via empty expanding label inside flow is awkward;
+        # put primary actions after a visual separator frame.
+        sep = QFrame()
+        sep.setFrameShape(QFrame.Shape.VLine)
+        sep.setFrameShadow(QFrame.Shadow.Sunken)
+        sep.setFixedWidth(8)
+        top_btns.addWidget(sep)
         top_btns.addWidget(self.export_log_btn)
         top_btns.addWidget(self.clear_log_btn)
         top_btns.addWidget(self.cancel_btn)
         top_btns.addWidget(self.flash_btn)
 
-        left = QWidget()
-        left_layout = QVBoxLayout(left)
-        left_layout.setContentsMargins(10, 10, 10, 8)
-        left_layout.setSpacing(10)
-        left_layout.addLayout(top_btns)
-        left_layout.addWidget(self.device_table, stretch=2)
-        left_layout.addWidget(self.config_panel, stretch=0)
-        left_layout.addWidget(self.summary_label)
+        devices_pane = QWidget()
+        devices_layout = QVBoxLayout(devices_pane)
+        devices_layout.setContentsMargins(8, 8, 8, 4)
+        devices_layout.setSpacing(6)
+        devices_layout.addWidget(toolbar)
+        devices_layout.addWidget(self.device_table, stretch=1)
 
-        splitter = QSplitter(Qt.Orientation.Vertical)
-        splitter.addWidget(left)
-        splitter.addWidget(self.log_view)
-        splitter.setStretchFactor(0, 3)
-        splitter.setStretchFactor(1, 2)
+        config_pane = QWidget()
+        config_layout = QVBoxLayout(config_pane)
+        config_layout.setContentsMargins(8, 4, 8, 4)
+        config_layout.setSpacing(4)
+        config_layout.addWidget(self.config_panel)
+
+        log_pane = QWidget()
+        log_layout = QVBoxLayout(log_pane)
+        log_layout.setContentsMargins(8, 4, 8, 8)
+        log_layout.setSpacing(4)
+        log_layout.addWidget(self.log_view, stretch=1)
+
+        self.main_splitter = QSplitter(Qt.Orientation.Vertical)
+        self.main_splitter.setObjectName("mainSplitter")
+        self.main_splitter.setChildrenCollapsible(True)
+        self.main_splitter.addWidget(devices_pane)
+        self.main_splitter.addWidget(config_pane)
+        self.main_splitter.addWidget(log_pane)
+        self.main_splitter.setStretchFactor(0, 5)
+        self.main_splitter.setStretchFactor(1, 2)
+        self.main_splitter.setStretchFactor(2, 3)
+        self.main_splitter.setSizes([280, 150, 200])
 
         container = QWidget()
         root = QVBoxLayout(container)
         root.setContentsMargins(0, 0, 0, 0)
-        root.addWidget(splitter)
+        root.addWidget(self.main_splitter)
         self.setCentralWidget(container)
 
         status = QStatusBar()
         self.setStatusBar(status)
-        status.showMessage("Ready - Refresh devices to scan for ST-Links")
+        status.addPermanentWidget(self.summary_label)
+        status.showMessage("Ready — Refresh to scan for ST-Links")
 
         self._build_menu()
         self._connect_signals()
@@ -146,6 +180,7 @@ class MainWindow(QMainWindow):
         self.config_panel.apply_settings(initial_settings)
         self._theme_mode = normalize_theme_mode(initial_settings.theme_mode)
         self._sync_theme_actions()
+        self._restore_ui_state()
         app = QApplication.instance()
         if app is not None:
             app.styleHints().colorSchemeChanged.connect(self._on_system_color_scheme_changed)
@@ -198,6 +233,10 @@ class MainWindow(QMainWindow):
         file_menu.addAction(quit_action)
 
         view_menu = self.menuBar().addMenu("&View")
+        reset_layout = QAction("Reset layout", self)
+        reset_layout.triggered.connect(self._reset_layout)
+        view_menu.addAction(reset_layout)
+        view_menu.addSeparator()
         theme_menu = view_menu.addMenu("Theme")
         self._theme_group = QActionGroup(self)
         self._theme_group.setExclusive(True)
@@ -232,7 +271,6 @@ class MainWindow(QMainWindow):
         if isinstance(app, QApplication):
             apply_app_theme(app, resolved)
         self._sync_theme_actions()
-        # Persist immediately so restart keeps the choice.
         settings = self.config_panel.to_settings()
         settings.theme_mode = resolved.value
         save_settings(settings)
@@ -247,6 +285,46 @@ class MainWindow(QMainWindow):
             app = QApplication.instance()
             if isinstance(app, QApplication):
                 apply_app_theme(app, ThemeMode.SYSTEM)
+
+    def _ui_settings(self) -> QSettings:
+        return QSettings(ORG, APP)
+
+    def _restore_ui_state(self) -> None:
+        q = self._ui_settings()
+        geometry = q.value("ui/geometry")
+        if isinstance(geometry, QByteArray) and not geometry.isEmpty():
+            self.restoreGeometry(geometry)
+        state = q.value("ui/windowState")
+        if isinstance(state, QByteArray) and not state.isEmpty():
+            self.restoreState(state)
+        splitter = q.value("ui/mainSplitter")
+        if isinstance(splitter, QByteArray) and not splitter.isEmpty():
+            self.main_splitter.restoreState(splitter)
+        widths = q.value("ui/deviceColumnWidths")
+        if isinstance(widths, list) and widths:
+            try:
+                self.device_table.apply_column_widths([int(w) for w in widths])
+            except (TypeError, ValueError):
+                pass
+        advanced = q.value("ui/configAdvanced", False)
+        self.config_panel.set_advanced_expanded(str(advanced).lower() in {"1", "true", "yes"})
+
+    def _save_ui_state(self) -> None:
+        q = self._ui_settings()
+        q.setValue("ui/geometry", self.saveGeometry())
+        q.setValue("ui/windowState", self.saveState())
+        q.setValue("ui/mainSplitter", self.main_splitter.saveState())
+        q.setValue("ui/deviceColumnWidths", self.device_table.column_widths())
+        q.setValue("ui/configAdvanced", self.config_panel.advanced_expanded())
+        q.sync()
+
+    def _reset_layout(self) -> None:
+        self.resize(960, 640)
+        self.main_splitter.setSizes([280, 150, 200])
+        self.config_panel.set_advanced_expanded(False)
+        self.device_table._last_width_bucket = None  # noqa: SLF001
+        self.device_table.apply_width_layout(self.device_table.viewport().width())
+        self.statusBar().showMessage("Layout reset")
 
     def _connect_signals(self) -> None:
         self.refresh_btn.clicked.connect(self.refresh_devices)
@@ -299,7 +377,7 @@ class MainWindow(QMainWindow):
             QMessageBox.information(
                 self,
                 "Identify LED",
-                "Check exactly one adapter, then click Identify LED.\n\n"
+                "Check exactly one adapter, then click Identify.\n\n"
                 "Watch the programmer COM LED — Windows may ask for Administrator "
                 "(UAC) so the probe can be briefly re-enumerated.",
             )
@@ -595,16 +673,20 @@ class MainWindow(QMainWindow):
         QMessageBox.information(
             self,
             "Shortcuts",
-            "Ctrl+Return - Start flash\n"
-            "Esc - Cancel\n"
-            "Ctrl+S - Export log\n"
-            "F5 / Refresh - Rescan devices\n"
-            "Identify LED - blink COM LED on the checked adapter\n"
-            "View → Theme - System / Light / Dark",
+            "Ctrl+Return — Start flash\n"
+            "Esc — Cancel\n"
+            "Ctrl+S — Export log\n"
+            "F5 / Refresh — Rescan devices\n"
+            "Identify — blink COM LED on the checked adapter\n"
+            "View → Reset layout — default splitter sizes\n"
+            "Drag splitter handles — resize devices / config / log\n"
+            "Drag column headers — resize device columns\n"
+            "View → Theme — System / Light / Dark",
         )
 
     def closeEvent(self, event: QCloseEvent) -> None:
         save_settings(self.config_panel.to_settings())
+        self._save_ui_state()
         if self._flash is not None and self._flash.isRunning():
             self._flash.cancel()
             self._flash.wait(3000)

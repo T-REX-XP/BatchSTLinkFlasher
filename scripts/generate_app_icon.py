@@ -202,10 +202,11 @@ def main() -> None:
     DOCS.mkdir(parents=True, exist_ok=True)
 
     master = load_master(1024)
-    master.save(OUT / "app_icon.png", "PNG", optimize=True)
-    master.save(OUT / "logo.png", "PNG", optimize=True)
+    ui = resize_icon(master, 512)
+    ui.save(OUT / "app_icon.png", "PNG", optimize=True)
+    ui.save(OUT / "logo.png", "PNG", optimize=True)
     # Splash keeps a larger brand mark (same art).
-    master.save(OUT / "splash.png", "PNG", optimize=True)
+    ui.save(OUT / "splash.png", "PNG", optimize=True)
     resize_icon(master, 256).save(OUT / "app_icon_256.png", "PNG", optimize=True)
 
     # Inno Setup wizard sidebar (164x314 classic) + small (55x55)
@@ -219,7 +220,7 @@ def main() -> None:
     write_ico(OUT / "app_icon.ico", frames)
 
     # README docs copy
-    master.save(DOCS / "logo.png", "PNG", optimize=True)
+    resize_icon(master, 512).save(DOCS / "logo.png", "PNG", optimize=True)
     resize_icon(master, 256).save(DOCS / "app_icon.png", "PNG", optimize=True)
 
     ico_bytes = (OUT / "app_icon.ico").stat().st_size

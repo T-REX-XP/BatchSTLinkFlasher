@@ -40,6 +40,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - README redesigned with badges, feature summary, and screenshot under ``docs/imgs/``
 - Documentation synced with current product (README, requirements, architecture, plan, packaging, scripts)
 - App logo: Windows 11 Fluent chip mark with transparent corners (shared by EXE, About, Setup.exe)
+- Compact laptop-friendly UI: 3-pane resizable splitter (devices / config / log), wrapping toolbar,
+  interactive device columns (hide PID/HLA when narrow), collapsible Advanced settings,
+  persisted window/splitter/column layout (View → Reset layout)
 - Removed deprecated script aliases (``bootstrap``, ``build_windows``, ``build_full_installer``)
 - Packaging: OpenOCD bundled by ``build_installer.ps1``; ``Setup.exe`` skipped gracefully if Inno Setup is not installed
 

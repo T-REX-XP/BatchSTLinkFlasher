@@ -38,3 +38,4 @@ local.settings.json
 
 # Downloaded runtime tools (OpenOCD etc.) — fetch via scripts\fetch_runtime_deps.ps1
 vendor/runtime/
+logs/*

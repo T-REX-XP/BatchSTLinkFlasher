@@ -1,16 +1,17 @@
-"""Flash configuration form."""
+"""Flash configuration form (compact; advanced fields collapsible)."""
 
 from __future__ import annotations
 
-from pathlib import Path
-
+from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QFileDialog,
     QFormLayout,
     QHBoxLayout,
     QLineEdit,
     QPushButton,
+    QSizePolicy,
     QStyle,
+    QToolButton,
     QVBoxLayout,
     QWidget,
 )
@@ -25,6 +26,7 @@ class ConfigPanel(QWidget):
 
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
+        self.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Maximum)
         self._theme_mode = "system"
         self.openocd_edit = QLineEdit()
         self.firmware_edit = QLineEdit()
@@ -34,19 +36,72 @@ class ConfigPanel(QWidget):
         self.bin_base_edit = QLineEdit()
         self.timeout_edit = QLineEdit()
 
-        form = QFormLayout()
-        form.setSpacing(8)
-        form.addRow("OpenOCD:", self._with_browse(self.openocd_edit, self._browse_openocd))
-        form.addRow("Firmware:", self._with_browse(self.firmware_edit, self._browse_firmware))
-        form.addRow("Interface cfg:", self.interface_edit)
-        form.addRow("Target cfg:", self.target_edit)
-        form.addRow("Scripts path (-s):", self._with_browse(self.scripts_edit, self._browse_scripts, dir_mode=True))
-        form.addRow("BIN base address:", self.bin_base_edit)
-        form.addRow("Timeout (sec):", self.timeout_edit)
+        for edit in (
+            self.openocd_edit,
+            self.firmware_edit,
+            self.interface_edit,
+            self.target_edit,
+            self.scripts_edit,
+            self.bin_base_edit,
+            self.timeout_edit,
+        ):
+            edit.setMinimumHeight(26)
+            edit.setClearButtonEnabled(True)
+
+        primary = QFormLayout()
+        primary.setContentsMargins(0, 0, 0, 0)
+        primary.setHorizontalSpacing(8)
+        primary.setVerticalSpacing(4)
+        primary.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.ExpandingFieldsGrow)
+        primary.addRow("OpenOCD:", self._with_browse(self.openocd_edit, self._browse_openocd))
+        primary.addRow("Firmware:", self._with_browse(self.firmware_edit, self._browse_firmware))
+        primary.addRow("Target cfg:", self.target_edit)
+
+        advanced_form = QFormLayout()
+        advanced_form.setContentsMargins(0, 0, 0, 0)
+        advanced_form.setHorizontalSpacing(8)
+        advanced_form.setVerticalSpacing(4)
+        advanced_form.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.ExpandingFieldsGrow)
+        advanced_form.addRow("Interface cfg:", self.interface_edit)
+        advanced_form.addRow(
+            "Scripts (-s):",
+            self._with_browse(self.scripts_edit, self._browse_scripts, dir_mode=True),
+        )
+        advanced_form.addRow("BIN base:", self.bin_base_edit)
+        advanced_form.addRow("Timeout (s):", self.timeout_edit)
+
+        self._advanced_body = QWidget()
+        self._advanced_body.setLayout(advanced_form)
+        self._advanced_body.setVisible(False)
+
+        self._advanced_toggle = QToolButton()
+        self._advanced_toggle.setObjectName("configAdvancedToggle")
+        self._advanced_toggle.setText("Advanced settings")
+        self._advanced_toggle.setCheckable(True)
+        self._advanced_toggle.setChecked(False)
+        self._advanced_toggle.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
+        self._advanced_toggle.setArrowType(Qt.ArrowType.RightArrow)
+        self._advanced_toggle.setAutoRaise(True)
+        self._advanced_toggle.toggled.connect(self._on_advanced_toggled)
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
-        layout.addLayout(form)
+        layout.setSpacing(4)
+        layout.addLayout(primary)
+        layout.addWidget(self._advanced_toggle, alignment=Qt.AlignmentFlag.AlignLeft)
+        layout.addWidget(self._advanced_body)
+
+    def advanced_expanded(self) -> bool:
+        return self._advanced_toggle.isChecked()
+
+    def set_advanced_expanded(self, expanded: bool) -> None:
+        self._advanced_toggle.setChecked(expanded)
+
+    def _on_advanced_toggled(self, checked: bool) -> None:
+        self._advanced_body.setVisible(checked)
+        self._advanced_toggle.setArrowType(
+            Qt.ArrowType.DownArrow if checked else Qt.ArrowType.RightArrow
+        )
 
     def apply_settings(self, settings: AppSettings) -> None:
         self.openocd_edit.setText(settings.openocd_path)
@@ -69,7 +124,8 @@ class ConfigPanel(QWidget):
             interface_cfg=self.interface_edit.text().strip(),
             target_cfg=self.target_edit.text().strip(),
             scripts_search_path=self.scripts_edit.text().strip(),
-            bin_base_address=self.bin_base_edit.text().strip() or f"0x{default_bin_base_address():X}",
+            bin_base_address=self.bin_base_edit.text().strip()
+            or f"0x{default_bin_base_address():X}",
             job_timeout_sec=timeout,
             theme_mode=getattr(self, "_theme_mode", "system"),
         )
@@ -78,9 +134,11 @@ class ConfigPanel(QWidget):
         row = QWidget()
         layout = QHBoxLayout(row)
         layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(6)
-        layout.addWidget(edit)
-        btn = QPushButton("Browse...")
+        layout.setSpacing(4)
+        layout.addWidget(edit, stretch=1)
+        btn = QPushButton("…")
+        btn.setFixedWidth(36)
+        btn.setToolTip("Browse…")
         decorate_button(btn, standard=QStyle.StandardPixmap.SP_DirOpenIcon)
         btn.clicked.connect(handler)
         layout.addWidget(btn)
@@ -103,6 +161,8 @@ class ConfigPanel(QWidget):
             self.firmware_edit.setText(path)
 
     def _browse_scripts(self) -> None:
-        path = QFileDialog.getExistingDirectory(self, "OpenOCD scripts directory", self.scripts_edit.text())
+        path = QFileDialog.getExistingDirectory(
+            self, "OpenOCD scripts directory", self.scripts_edit.text()
+        )
         if path:
             self.scripts_edit.setText(path)

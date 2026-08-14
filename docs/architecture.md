@@ -42,12 +42,13 @@ src/batch_stlink_flasher/
   assets_util.py
   assets/              # logo.png, app_icon.png/.ico, splash.png
   ui/
-    main_window.py
+    main_window.py     # 3-pane splitter (devices / config / log); compact laptop layout
     about_dialog.py
     splash_screen.py
     theme.py
-    device_table.py
-    config_panel.py
+    flow_layout.py     # wrapping toolbar
+    device_table.py    # resizable columns; narrow-width column hide
+    config_panel.py    # primary + collapsible Advanced
     log_view.py
     workers.py
   services/

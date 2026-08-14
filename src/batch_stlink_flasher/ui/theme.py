@@ -195,14 +195,20 @@ def app_stylesheet(palette: ThemePalette | None = None) -> str:
     }}
     QSplitter::handle {{
         background-color: {p.border};
-        height: 2px;
+        margin: 1px 4px;
+    }}
+    QSplitter::handle:horizontal {{
+        width: 5px;
+    }}
+    QSplitter::handle:vertical {{
+        height: 5px;
     }}
     QPushButton {{
         background-color: {p.bg_elevated};
         border: 1px solid {p.border};
         border-radius: 6px;
-        padding: 6px 12px;
-        min-height: 28px;
+        padding: 4px 10px;
+        min-height: 24px;
     }}
     QPushButton:hover {{
         border-color: {p.accent};
@@ -240,7 +246,7 @@ def app_stylesheet(palette: ThemePalette | None = None) -> str:
         background-color: {p.bg_input};
         border: 1px solid {p.border};
         border-radius: 5px;
-        padding: 5px 8px;
+        padding: 3px 6px;
         selection-background-color: {p.accent};
         selection-color: {p.text_on_accent};
     }}
@@ -260,7 +266,7 @@ def app_stylesheet(palette: ThemePalette | None = None) -> str:
         border: none;
         border-right: 1px solid {p.border};
         border-bottom: 1px solid {p.border};
-        padding: 6px 8px;
+        padding: 4px 6px;
         font-weight: 600;
     }}
     QTableWidget::item:selected {{
@@ -270,8 +276,17 @@ def app_stylesheet(palette: ThemePalette | None = None) -> str:
     QLabel#summaryLabel {{
         color: {p.text};
         font-weight: 700;
-        font-size: 13px;
-        padding: 6px 2px;
+        font-size: 12px;
+        padding: 0 8px;
+    }}
+    QToolButton#configAdvancedToggle {{
+        color: {p.text_muted};
+        border: none;
+        padding: 2px 4px;
+        font-weight: 600;
+    }}
+    QToolButton#configAdvancedToggle:hover {{
+        color: {p.accent};
     }}
     QScrollBar:vertical {{
         background: {p.bg};
