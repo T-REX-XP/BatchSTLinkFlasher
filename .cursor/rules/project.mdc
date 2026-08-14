@@ -1,0 +1,12 @@
+---
+description: Batch ST-Link Flasher project conventions for AI agents
+alwaysApply: true
+---
+
+# BatchSTLinkFlasher
+
+- Read `AGENTS.md` and `docs/requirements.md` before implementing features.
+- Follow phases in `docs/plan.md`; do not build UI before flash job works headlessly.
+- Stack: Python 3.11+, PySide6, OpenOCD subprocess (one process per ST-Link).
+- Update `CHANGELOG.md` Unreleased when user-visible behavior changes.
+- Keep OpenOCD command building in `flashing/openocd.py` and cover with unit tests.

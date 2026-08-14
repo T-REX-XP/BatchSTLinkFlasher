@@ -1,0 +1,37 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "batch-stlink-flasher"
+version = "0.1.0.dev0"
+description = "Batch-flash multiple STM32 targets via ST-Link V2 and OpenOCD"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [{ name = "BatchSTLinkFlasher contributors" }]
+dependencies = [
+  "PySide6>=6.6",
+  "pyusb>=1.2",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.0",
+  "pytest-qt>=4.4",
+  "ruff>=0.6",
+]
+
+[project.scripts]
+batch-stlink-flasher = "batch_stlink_flasher.__main__:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"

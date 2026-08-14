@@ -1,0 +1,74 @@
+# Implementation plan
+
+Use this checklist in order. Check items off in PRs / commits. Update `CHANGELOG.md` when a phase becomes usable.
+
+## Phase 0 — Repo & docs (done by scaffolding)
+
+- [x] AI-ready `docs/requirements.md`
+- [x] `docs/architecture.md`, `docs/plan.md`, `docs/openocd-integration.md`
+- [x] `README.md`, `AGENTS.md`, `CHANGELOG.md`
+- [x] Python package skeleton under `src/batch_stlink_flasher/`
+- [x] `.gitignore`, `pyproject.toml`
+
+## Phase 1 — Models & OpenOCD CLI builder
+
+**Owner: implementer (you / agent)**
+
+- [ ] Implement `flashing/models.py` (`AdapterInfo`, `FlashConfig`, `JobState`)
+- [ ] Implement `flashing/openocd.py`: build argv list from config + serial + ports
+- [ ] Implement `util/ports.py`: allocate N free localhost ports
+- [ ] Unit tests: command builder for `.elf` / `.hex` / `.bin` (+ address)
+- [ ] Manual: run generated command once from a shell against one ST-Link
+
+**Done when**: a known-good OpenOCD command can be produced without UI.
+
+## Phase 2 — Device discovery
+
+- [ ] `services/device_service.py`: prefer `st-info --probe` parse; fallback pyusb VID `0x0483`
+- [ ] Normalize HLA serial for OpenOCD (document format in openocd-integration)
+- [ ] CLI smoke: `python -m batch_stlink_flasher.discover` (optional tiny entry) prints adapters
+- [ ] Unit tests with fixture stdout from `st-info`
+
+**Done when**: connected probes list with serials on a real machine.
+
+## Phase 3 — Single-device flash job
+
+- [ ] `FlashJob`: start process, stream lines, map exit → Succeeded/Failed/Cancelled
+- [ ] Soft timeout + kill
+- [ ] Headless test or script: flash one device from CLI args
+
+**Done when**: one device flashes reliably from code (no UI).
+
+## Phase 4 — Parallel orchestrator
+
+- [ ] `FlashOrchestrator`: N jobs, unique ports, aggregate summary
+- [ ] Cancel all / cancel one
+- [ ] Ensure one failed job does not abort siblings
+
+**Done when**: 2+ devices flash in parallel from a small script.
+
+## Phase 5 — Desktop UI
+
+- [ ] Main window layout per `FR-UX-01`
+- [ ] Wire discovery refresh, config panel, start/cancel
+- [ ] Per-device status + log view
+- [ ] Validation before Start (`FR-UX-02`)
+- [ ] Settings persistence
+
+**Done when**: acceptance criteria in `docs/requirements.md` §7 pass.
+
+## Phase 6 — Polish
+
+- [ ] Log export
+- [ ] Better progress parsing (if OpenOCD output allows)
+- [ ] Packaging notes / PyInstaller recipe in README
+- [ ] Tag version `0.1.0` in `CHANGELOG.md`
+
+## Suggested commit style
+
+- `docs: …` for documentation-only
+- `feat: …` for user-visible capability
+- `fix: …` for bugs
+- `test: …` / `chore: …` as appropriate
+
+Keep commits small and aligned to one phase item when possible.

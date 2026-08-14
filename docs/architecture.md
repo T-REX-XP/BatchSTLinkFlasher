@@ -1,0 +1,132 @@
+# Architecture
+
+## 1. Overview
+
+```
+┌─────────────────────────────────────────────────────────┐
+│  UI (PySide6)                                           │
+│  DeviceTable | ConfigPanel | FlashControls | LogView    │
+└───────────────┬─────────────────────────────┬───────────┘
+                │ signals / slots             │
+┌───────────────▼─────────────┐   ┌───────────▼───────────┐
+│  DeviceService              │   │  FlashOrchestrator    │
+│  - enumerate ST-Links       │   │  - spawn N jobs       │
+│  - map to AdapterInfo       │   │  - unique ports       │
+└───────────────┬─────────────┘   └───────────┬───────────┘
+                │                             │
+                │                  ┌──────────▼──────────┐
+                │                  │ FlashJob (per device)│
+                │                  │ - build OpenOCD cmd │
+                │                  │ - stream logs       │
+                │                  │ - track state       │
+                │                  └──────────┬──────────┘
+                │                             │
+┌───────────────▼─────────────────────────────▼───────────┐
+│  OpenOCDProcess (subprocess)  × N                       │
+│  -c "hla_serial …"  -c "gdb_port …"  program/verify     │
+└─────────────────────────────────────────────────────────┘
+```
+
+## 2. Package layout
+
+```
+src/batch_stlink_flasher/
+  __init__.py          # package version
+  __main__.py          # python -m batch_stlink_flasher
+  app.py               # QApplication bootstrap
+  ui/
+    main_window.py
+    device_table.py
+    config_panel.py
+    log_view.py
+  services/
+    device_service.py  # discovery
+    settings.py        # QSettings / JSON persistence
+  flashing/
+    models.py          # AdapterInfo, FlashConfig, JobState
+    orchestrator.py
+    job.py
+    openocd.py         # command builder + process wrapper
+  util/
+    ports.py           # allocate free TCP ports
+    logging_setup.py
+```
+
+## 3. Core models
+
+```python
+@dataclass(frozen=True)
+class AdapterInfo:
+    serial: str              # human / st-info serial
+    hla_serial: str          # string passed to OpenOCD
+    vid: int
+    pid: int
+    product: str
+    manufacturer: str
+    usb_path: str | None
+
+class JobState(Enum):
+    IDLE = "idle"
+    QUEUED = "queued"
+    RUNNING = "running"
+    SUCCEEDED = "succeeded"
+    FAILED = "failed"
+    CANCELLED = "cancelled"
+
+@dataclass
+class FlashConfig:
+    openocd_path: Path
+    firmware_path: Path
+    interface_cfg: str       # e.g. interface/stlink.cfg
+    target_cfg: str          # e.g. target/stm32f1x.cfg
+    bin_base_address: int | None  # required for .bin
+```
+
+## 4. OpenOCD process rules
+
+1. **One process per adapter** — never share an OpenOCD instance across devices.
+2. **Serial binding** — always pass adapter serial so the correct probe is used when several are plugged in.
+3. **Unique ports** — for job index `i`, allocate three free ports (or fixed base + offsets): `gdb`, `telnet`, `tcl`. Prefer `tcl_port disabled` / `0` if supported by the installed OpenOCD to reduce conflicts.
+4. **Working directory** — OpenOCD scripts path must resolve (`-s` search path if needed).
+5. **Program sequence** (typical):
+   - init / halt
+   - `program <file> [address] verify reset exit`
+6. **Timeouts** — configurable soft timeout per job (default e.g. 120s); on timeout kill process → Failed.
+
+Details and example CLI: `docs/openocd-integration.md`.
+
+## 5. Threading model
+
+- **UI thread**: widgets only.
+- **Discovery**: worker `QThread` or `QObject` + `moveToThread`; emit `adapters_updated`.
+- **Flash jobs**: each job runs OpenOCD in a `QProcess` or `subprocess` on a worker; stdout/stderr → queued signals → UI append log.
+- **Orchestrator**: lives on a controller object; starts jobs, aggregates summary counts.
+
+Never call blocking USB/OpenOCD APIs on the UI thread.
+
+## 6. Settings
+
+Persist with `QSettings` (org=`BatchSTLinkFlasher`, app=`BatchSTLinkFlasher`) or `~/.config/...`:
+
+- `openocd_path`
+- `last_firmware_path`
+- `interface_cfg`, `target_cfg`
+- `bin_base_address`
+- `job_timeout_sec`
+
+## 7. Error taxonomy
+
+| Source | UI treatment |
+|--------|--------------|
+| OpenOCD not found | Block Start; show path error |
+| No adapters | Block Start |
+| Missing serial | Device row disabled + reason |
+| Process non-zero exit | Device Failed + last error line |
+| Timeout | Kill + Failed |
+| Cancel | Cancelled (not counted as Failed) |
+
+## 8. Extensibility (later)
+
+- Alternate backends (`st-flash`) behind a `ProgrammerBackend` protocol
+- Per-device firmware mapping
+- Embedded OpenOCD distribution
