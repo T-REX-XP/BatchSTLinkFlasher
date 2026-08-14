@@ -12,7 +12,7 @@ Desktop application that flashes **the same firmware file** onto **1–N STM32 (
 - Debugging / GDB sessions
 - Different firmware per device in one run
 - Automatic MCU detection beyond what OpenOCD/target config provides
-- Bundling OpenOCD binaries in the installer (document external install; optional later)
+- Bundling OpenOCD binaries in the installer (optional later) → **supported via `scripts/build_full_installer.ps1`**
 - macOS / Linux as primary targets (design should not block them; Windows first)
 
 ## 3. Actors & environment

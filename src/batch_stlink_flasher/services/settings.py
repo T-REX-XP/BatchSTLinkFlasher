@@ -7,6 +7,8 @@ from pathlib import Path
 
 from PySide6.QtCore import QSettings
 
+from batch_stlink_flasher.bundled_tools import discover_bundled_tools
+
 ORG = "BatchSTLinkFlasher"
 APP = "BatchSTLinkFlasher"
 DEFAULT_BIN_BASE = "0x08000000"
@@ -25,7 +27,7 @@ class AppSettings:
 
 def load_settings() -> AppSettings:
     q = QSettings(ORG, APP)
-    return AppSettings(
+    settings = AppSettings(
         openocd_path=str(q.value("openocd_path", "openocd")),
         last_firmware_path=str(q.value("last_firmware_path", "")),
         interface_cfg=str(q.value("interface_cfg", "interface/stlink.cfg")),
@@ -34,6 +36,7 @@ def load_settings() -> AppSettings:
         bin_base_address=str(q.value("bin_base_address", DEFAULT_BIN_BASE)),
         job_timeout_sec=float(q.value("job_timeout_sec", 120.0)),
     )
+    return apply_bundled_defaults(settings)
 
 
 def save_settings(settings: AppSettings) -> None:
@@ -48,6 +51,25 @@ def save_settings(settings: AppSettings) -> None:
     q.sync()
 
 
+def apply_bundled_defaults(settings: AppSettings) -> AppSettings:
+    """
+    If OpenOCD is still the default ``openocd`` name (or missing), prefer a
+    bundled copy shipped under ``tools/openocd``.
+    """
+    bundled = discover_bundled_tools()
+    if bundled is None:
+        return settings
+
+    current = resolve_openocd_path(settings.openocd_path)
+    use_bundled_exe = current is None or settings.openocd_path.strip() in {"", "openocd", "openocd.exe"}
+    if use_bundled_exe:
+        settings.openocd_path = str(bundled.openocd_exe)
+
+    if not settings.scripts_search_path.strip() and bundled.scripts_dir is not None:
+        settings.scripts_search_path = str(bundled.scripts_dir)
+    return settings
+
+
 def resolve_openocd_path(value: str) -> Path | None:
     """Return an existing OpenOCD path, or None if not found."""
     import shutil
@@ -55,8 +77,16 @@ def resolve_openocd_path(value: str) -> Path | None:
     text = (value or "").strip()
     if not text:
         return None
+
     path = Path(text)
     if path.is_file():
         return path
     found = shutil.which(text)
-    return Path(found) if found else None
+    if found:
+        return Path(found)
+
+    if text.lower() in {"openocd", "openocd.exe"}:
+        bundled = discover_bundled_tools()
+        if bundled is not None and bundled.openocd_exe.is_file():
+            return bundled.openocd_exe
+    return None

@@ -9,8 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
-- Themed dark UI with button icons, splash artwork, and application icon
+- Full installer build `scripts/build_full_installer.ps1` (app + bundled OpenOCD + Setup.exe)
+- Runtime dependency fetch `scripts/fetch_runtime_deps.ps1` / `packaging/runtime-deps.json`
+- Auto-detect bundled OpenOCD under `tools/openocd` via `bundled-tools.json`
 - Flat chip logo / multi-size Windows ``app_icon.ico`` (regenerate via ``scripts/generate_app_icon.py``)
+- Themed dark UI with button icons, splash artwork, and application icon
 - About dialog (Help → About) showing version/build and project summary
 - Startup splash screen that scans for ST-Link devices before opening the main window
 - Auto-incrementing build number on every Windows package build (`packaging/version.json`)
@@ -22,6 +25,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - Hide PowerShell / console flash during Windows ST-Link discovery and OpenOCD jobs
 
 ### Changed
+
+- Packaging docs: OpenOCD is bundled by the full installer; operators do not need system Python
 
 ## [0.1.0] - 2026-08-14
 

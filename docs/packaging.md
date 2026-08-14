@@ -2,12 +2,50 @@
 
 ## Operator runtime dependencies
 
-- Windows 10/11 x64
-- [OpenOCD](https://openocd.org/) installed and on `PATH` (or configured in the app)
-- ST-Link USB driver (ST official driver is fine; Windows PnP discovery does not need libusb)
-- Optional: [stlink](https://github.com/stlink-org/stlink) (`st-info`) for richer probe info
+| Dependency | How it is provided |
+|------------|--------------------|
+| **Python** | Embedded inside `BatchSTLinkFlasher.exe` by PyInstaller — **operators do not install Python** |
+| **OpenOCD** | Bundled under `tools\openocd\` when you use the full installer build |
+| **VC++ runtime** | Optional; install with winget via `-InstallSystemDeps` on the build PC |
+| **ST-Link USB driver** | Optional; Windows PnP discovery works with ST’s official driver if present |
 
-The app does **not** bundle OpenOCD in v0.1.0.
+Pinned OpenOCD download: `packaging/runtime-deps.json` (xPack OpenOCD).
+
+## Full installer (recommended)
+
+One script builds the app, downloads OpenOCD, stages it into the dist folder, and produces Setup.exe / portable zip:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\build_full_installer.ps1 -ZipPortable -InstallSystemDeps
+```
+
+What it does:
+
+1. Ensures Python 3.11+ on the **build** machine (optional winget install)
+2. Creates `.venv` and installs packaging extras
+3. Downloads OpenOCD → `vendor\runtime\openocd\`
+4. Builds `dist\BatchSTLinkFlasher\` (PyInstaller)
+5. Copies OpenOCD → `dist\BatchSTLinkFlasher\tools\openocd\`
+6. Writes `bundled-tools.json` (app auto-selects OpenOCD + scripts path)
+7. Compiles Inno Setup `Setup.exe` when ISCC is available
+
+Useful switches:
+
+| Switch | Meaning |
+|--------|---------|
+| `-SkipFetch` | Reuse already-downloaded OpenOCD |
+| `-SkipBuild` | Reuse existing onedir |
+| `-NoBump` | Keep current version |
+| `-SkipInno` | Skip Setup.exe |
+| `-ZipPortable` | Also zip the onedir (includes OpenOCD) |
+| `-InstallSystemDeps` | winget: VC++ redistributable (+ Python if missing for build) |
+| `-SkipPythonBootstrap` | Assume `.venv` is ready |
+
+Fetch OpenOCD alone:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\fetch_runtime_deps.ps1
+```
 
 ## Dev bootstrap
 
@@ -17,29 +55,29 @@ powershell -ExecutionPolicy Bypass -File scripts\bootstrap.ps1
 
 Creates `.venv`, installs `[dev]`, runs tests, and prints docs links.
 
-## Build Windows dist (PyInstaller onedir)
+## Build Windows dist only (no OpenOCD bundle)
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File scripts\build_windows.ps1
 ```
 
-Output folder: `dist\BatchSTLinkFlasher\`
+Output folder: `dist\BatchSTLinkFlasher\` (app only). Prefer `build_full_installer.ps1` for operator installs.
 
-## Installer (recommended)
+## Install on a PC
 
-### Option A — PowerShell installer (no third-party tools)
-
-Builds (optional) and installs per-user under `%LOCALAPPDATA%\Programs\BatchSTLinkFlasher`:
+### Option A — PowerShell installer (no Inno Setup)
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File scripts\install.ps1 -Build -DesktopShortcut -Force
 ```
 
+For a full tool bundle, build with `build_full_installer.ps1` first (or pass a SourceDir that already contains `tools\openocd`).
+
 Useful switches:
 
 | Switch | Meaning |
 |--------|---------|
-| `-Build` | Run PyInstaller build first |
+| `-Build` | Run PyInstaller build first (does **not** fetch OpenOCD by itself) |
 | `-DesktopShortcut` | Create Desktop icon |
 | `-AllUsers` | Install to Program Files (needs admin) |
 | `-Force` | Overwrite without prompt |
@@ -51,32 +89,19 @@ Uninstall:
 powershell -ExecutionPolicy Bypass -File scripts\uninstall.ps1
 ```
 
-Or use **Settings → Apps** / Start Menu → Uninstall.
-
 ### Option B — Setup.exe (Inno Setup)
 
 1. Install [Inno Setup 6](https://jrsoftware.org/isinfo.php)
-2. Run:
+2. Run `scripts\build_full_installer.ps1`
+3. Distribute `dist\BatchSTLinkFlasher-<version>-Setup.exe`
+
+### Option C — Portable zip
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File scripts\build_installer.ps1 -ZipPortable
+powershell -ExecutionPolicy Bypass -File scripts\build_full_installer.ps1 -SkipInno -ZipPortable
 ```
 
-Produces:
-
-- `dist\BatchSTLinkFlasher\` (onedir)
-- `dist\BatchSTLinkFlasher-0.1.0-Setup.exe` (when ISCC is available)
-- `dist\BatchSTLinkFlasher-0.1.0-portable.zip` (with `-ZipPortable`)
-
-Inno script: `packaging\installer.iss`
-
-### Option C — Portable zip only
-
-```powershell
-powershell -ExecutionPolicy Bypass -File scripts\build_installer.ps1 -SkipInno -ZipPortable
-```
-
-Unzip and run `BatchSTLinkFlasher.exe`.
+Unzip and run `BatchSTLinkFlasher.exe` (OpenOCD is under `tools\openocd`).
 
 ## GitHub Actions
 

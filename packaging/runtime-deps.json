@@ -1,0 +1,15 @@
+{
+  "openocd": {
+    "name": "xPack OpenOCD",
+    "version": "0.12.0-7",
+    "url": "https://github.com/xpack-dev-tools/openocd-xpack/releases/download/v0.12.0-7/xpack-openocd-0.12.0-7-win32-x64.zip",
+    "sha256": "6bfd3c97135aafef8affc9af1acf34fd0e2b9ca26044506f6abd7f95b7630052",
+    "exe_relpath": "bin/openocd.exe",
+    "scripts_relpath": "share/openocd/scripts"
+  },
+  "notes": [
+    "PyInstaller embeds the Python runtime inside BatchSTLinkFlasher.exe — operators do not need a system Python.",
+    "ST-Link USB drivers remain optional; Windows PnP discovery works with the official ST driver if installed.",
+    "VC++ redistributable may be installed via winget when using build_full_installer.ps1 -InstallSystemDeps."
+  ]
+}

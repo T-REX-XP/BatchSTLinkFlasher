@@ -201,12 +201,17 @@ Register-UninstallEntry -InstallRoot $InstallRoot -UninstallScript $UninstallDst
     InstalledAt = (Get-Date).ToString("o")
 } | ConvertTo-Json | Set-Content -Path (Join-Path $InstallRoot "install.json") -Encoding UTF8
 
-$OpenOcd = Get-Command openocd -ErrorAction SilentlyContinue
-if ($OpenOcd) {
-    Write-Host "OpenOCD found: $($OpenOcd.Source)" -ForegroundColor Green
+$OpenOcdBundled = Join-Path $InstallRoot "tools\openocd\bin\openocd.exe"
+if (Test-Path $OpenOcdBundled) {
+    Write-Host "Bundled OpenOCD: $OpenOcdBundled" -ForegroundColor Green
 } else {
-    Write-Host "NOTE: OpenOCD was not found on PATH." -ForegroundColor Yellow
-    Write-Host "      Install OpenOCD separately and set its path in the app settings."
+    $OpenOcd = Get-Command openocd -ErrorAction SilentlyContinue
+    if ($OpenOcd) {
+        Write-Host "OpenOCD found on PATH: $($OpenOcd.Source)" -ForegroundColor Green
+    } else {
+        Write-Host "NOTE: OpenOCD was not bundled and not found on PATH." -ForegroundColor Yellow
+        Write-Host "      Rebuild with: powershell -File scripts\build_full_installer.ps1"
+    }
 }
 
 Write-Host ""
@@ -214,3 +219,4 @@ Write-Host "Installed successfully." -ForegroundColor Green
 Write-Host "  App     : $ExePath"
 Write-Host "  Start   : Start Menu -> $AppName"
 Write-Host "  Remove  : Settings -> Apps, or Start Menu -> Uninstall $AppName"
+Write-Host "  Note    : System Python is NOT required (embedded in the EXE)."

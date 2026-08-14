@@ -34,6 +34,7 @@ src/batch_stlink_flasher/
   __init__.py          # package version
   __main__.py          # python -m batch_stlink_flasher
   app.py               # QApplication bootstrap
+  bundled_tools.py     # locate tools/openocd next to frozen EXE
   assets_util.py
   assets/              # logo.png, app_icon.png/.ico, splash.png
   ui/

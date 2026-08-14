@@ -7,7 +7,7 @@
 
 #define MyAppName "Batch ST-Link Flasher"
 #define MyAppId "BatchSTLinkFlasher"
-#define MyAppVersion "0.1.0.2"
+#define MyAppVersion "0.1.0.3"
 #define MyAppPublisher "BatchSTLinkFlasher"
 #define MyAppExeName "BatchSTLinkFlasher.exe"
 
@@ -38,7 +38,8 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 Name: "desktopicon"; Description: "Create a &desktop shortcut"; GroupDescription: "Additional icons:"; Flags: unchecked
 
 [Files]
-; PyInstaller onedir payload produced by scripts\build_windows.ps1
+; PyInstaller onedir payload produced by scripts\build_windows.ps1 / build_full_installer.ps1
+; Includes tools\openocd when built with scripts\build_full_installer.ps1
 Source: "..\dist\BatchSTLinkFlasher\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "..\scripts\uninstall.ps1"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\README.md"; DestDir: "{app}"; Flags: ignoreversion
@@ -57,8 +58,4 @@ Filename: "{app}\{#MyAppExeName}"; Description: "Launch {#MyAppName}"; Flags: no
 function InitializeSetup(): Boolean;
 begin
   Result := True;
-  MsgBox('OpenOCD is not bundled with this installer.'#13#10#13#10 +
-         'Install OpenOCD separately and ensure it is on PATH,'#13#10 +
-         'or set the OpenOCD path in the application settings.',
-         mbInformation, MB_OK);
 end;

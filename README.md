@@ -32,11 +32,18 @@ See `docs/plan.md`.
 
 ## Prerequisites
 
-- Windows 10/11 (primary)
+**Developers (build from source)**
+
+- Windows 10/11
 - Python 3.11+
-- [OpenOCD](https://openocd.org/) on `PATH` (or set in the UI)
-- Optional: [stlink](https://github.com/stlink-org/stlink) (`st-info`) for probe listing
-- One or more ST-Link V2 / V2-1 programmers with targets powered and wired
+- Optional: OpenOCD on `PATH` for live flash tests
+
+**Operators (installed EXE)**
+
+- Windows 10/11
+- No system Python needed (embedded in the EXE)
+- OpenOCD is bundled when you use `scripts\build_full_installer.ps1`
+- Optional: ST official ST-Link USB driver
 
 ## Quick install (Windows)
 
@@ -66,11 +73,11 @@ Shortcuts: **Ctrl+Return** flash, **Esc** cancel, **Ctrl+S** export log, **F5** 
 ## Build distributable / installer
 
 ```powershell
-# Per-user install from a fresh build
-powershell -ExecutionPolicy Bypass -File scripts\install.ps1 -Build -DesktopShortcut -Force
+# Full installer: app + OpenOCD (+ optional winget VC++ / Python for the build PC)
+powershell -ExecutionPolicy Bypass -File scripts\build_full_installer.ps1 -ZipPortable -InstallSystemDeps
 
-# Or produce Setup.exe / portable zip (Inno Setup optional)
-powershell -ExecutionPolicy Bypass -File scripts\build_installer.ps1 -ZipPortable
+# Per-user install from an already-built dist (prefer full installer build first)
+powershell -ExecutionPolicy Bypass -File scripts\install.ps1 -DesktopShortcut -Force
 ```
 
 See [docs/packaging.md](docs/packaging.md).
