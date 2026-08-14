@@ -5,14 +5,14 @@
 
 ## 1. Goal
 
-Desktop application that flashes **the same firmware file** onto **1–N STM32 (or compatible) targets** in parallel, each connected through its own **ST-Link V2** (or ST-Link V2-1) USB programmer, using **OpenOCD** as the programmer backend.
+Desktop application that flashes **the same firmware file** onto **1–N STM32 (or compatible) targets**, each connected through its own **ST-Link V2** (or ST-Link V2-1) USB programmer, using **OpenOCD** as the programmer backend. Unique-serial probes flash in parallel; clones without HLA serials flash sequentially with Windows USB isolation.
 
 ## 2. Non-goals (v1)
 
 - Debugging / GDB sessions
 - Different firmware per device in one run
 - Automatic MCU detection beyond what OpenOCD/target config provides
-- Bundling OpenOCD binaries in the installer → **supported via `scripts/build_installer.ps1`**
+- Operator-selectable “force parallel for clones” (unsafe; isolation is automatic)
 - macOS / Linux as primary targets (design should not block them; Windows first)
 
 ## 3. Actors & environment
@@ -20,7 +20,7 @@ Desktop application that flashes **the same firmware file** onto **1–N STM32 (
 | Actor | Description |
 |-------|-------------|
 | Operator | Factory / lab user with 1–N ST-Links plugged into one Windows PC |
-| OpenOCD | External CLI tool; must be on `PATH` or configured via app setting |
+| OpenOCD | External CLI; on `PATH`, configured in settings, or **bundled** under `tools/openocd` in the packaged app |
 | Target MCU | Powered and wired to its ST-Link (SWD); family selected via OpenOCD target/board config |
 
 **Assumptions**
@@ -39,7 +39,7 @@ Desktop application that flashes **the same firmware file** onto **1–N STM32 (
 |----|-------------|----------|
 | FR-DISC-01 | Detect connected ST-Link V2 / V2-1 devices on USB | Must |
 | FR-DISC-02 | Show count of programmers currently connected | Must |
-| FR-DISC-03 | Per device show: display name, USB serial (HLA), VID/PID, path/bus info if available, OpenOCD-ready serial string | Must |
+| FR-DISC-03 | Per device show: display name, USB serial (HLA), VID/PID, USB port/hub when available, path/bus info, OpenOCD-ready serial string | Must |
 | FR-DISC-04 | Refresh discovery on demand (button) | Must |
 | FR-DISC-05 | Optional auto-refresh while idle (interval configurable; default off or ≥2s) | Should |
 | FR-DISC-06 | Mark devices that cannot be selected (missing serial, in use, unsupported) with a clear reason | Should |
@@ -56,11 +56,11 @@ Desktop application that flashes **the same firmware file** onto **1–N STM32 (
 | FR-CFG-05 | User can select which discovered devices participate in the next flash run | Must |
 | FR-CFG-06 | Persist last-used firmware path, target config, and OpenOCD path across sessions | Should |
 
-### 4.3 Parallel flashing
+### 4.3 Flashing (parallel HLA + sequential clones)
 
 | ID | Requirement | Priority |
 |----|-------------|----------|
-| FR-FLASH-01 | Start flash on all selected devices in parallel (one OpenOCD process per device) | Must |
+| FR-FLASH-01 | Flash all selected devices in one run: HLA-bound probes concurrently; unbound clones sequentially with isolation (see `docs/dual-flash-strategy.md`) | Must |
 | FR-FLASH-02 | Assign unique OpenOCD TCP ports per process (`gdb_port`, `telnet_port`, `tcl_port`) to avoid collisions | Must |
 | FR-FLASH-03 | Bind each HLA-capable process to one adapter via ``hla_serial``; for clones without unique serial, flash sequentially while isolating sibling USB devices | Must |
 | FR-FLASH-04 | Per-device states: Idle → Queued → Running → Succeeded \| Failed \| Cancelled | Must |
@@ -108,15 +108,15 @@ Desktop application that flashes **the same firmware file** onto **1–N STM32 (
 | UI | **PySide6 (Qt)** | Mature desktop UX; signals/slots for device/job updates |
 | Programmer | **OpenOCD** (external) | Existing ST-Link support; multi-adapter via serial + unique ports |
 | Device enum | **Windows PnP registry** first; then ``st-info --probe``; then **pyusb** (VID `0x0483`) | Serial strings needed for OpenOCD; PnP avoids spawning consoles |
-| Packaging (later) | PyInstaller or similar | Single-folder Windows distribute |
+| Packaging | PyInstaller + optional Inno Setup (`Setup.exe`); OpenOCD bundled by `build_installer.ps1` | Operator-ready Windows distribute |
 
 Do **not** change stack without updating `docs/architecture.md` and this section.
 
 ## 7. Acceptance criteria (v1)
 
-1. With 2+ ST-Links connected, the app lists each with a distinct serial.
-2. Operator selects one `.hex`/`.elf`, chooses target config, selects all devices, clicks Flash.
-3. Each device runs its own OpenOCD job; UI shows per-device Running → Succeeded/Failed.
+1. With 2+ ST-Links connected, the app lists each (distinct `usb_path` even if serial is `%`).
+2. Operator selects one `.hex`/`.elf`, chooses target config, selects devices, clicks Flash.
+3. HLA-bound probes run OpenOCD in parallel; clones run sequentially under isolation; UI shows per-device Running → Succeeded/Failed.
 4. One intentional failure (wrong target, no MCU) does not cancel siblings.
 5. Cancel stops remaining OpenOCD processes.
 6. `CHANGELOG.md` has an Unreleased / version entry describing the feature set.
@@ -127,7 +127,7 @@ Do **not** change stack without updating `docs/architecture.md` and this section
 |---|----------|------------------------|
 | Q1 | Exact MCU families in production? | Configurable OpenOCD `target`/`board` scripts only |
 | Q2 | Must verify flash (read-back / CRC)? | v1: rely on OpenOCD program + verify flags if available |
-| Q3 | Ship OpenOCD with the app? | No — require install + path setting |
+| Q3 | Ship OpenOCD with the app? | **Yes** for packaged builds (`build_installer.ps1`); path setting still available for source runs |
 | Q4 | RDP / option-byte programming? | Out of scope v1 |
 
 ## 9. Doc map
@@ -136,9 +136,10 @@ Do **not** change stack without updating `docs/architecture.md` and this section
 |------|---------|
 | `docs/requirements.md` | This contract |
 | `docs/architecture.md` | Components, data flow, module layout |
+| `docs/dual-flash-strategy.md` | HLA parallel vs clone sequential + isolation |
 | `docs/plan.md` | Phased implementation checklist for agents/humans |
 | `docs/openocd-integration.md` | CLI recipes, ports, serial binding |
-| `docs/packaging.md` | Bootstrap, PyInstaller, CI |
+| `docs/packaging.md` | PyInstaller, installer, CI / release |
 | `AGENTS.md` | How AI agents must work in this repo |
 | `CHANGELOG.md` | User-visible change history |
 | `README.md` | Install, run, operator quick start |

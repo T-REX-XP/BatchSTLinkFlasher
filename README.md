@@ -1,53 +1,75 @@
-# Batch ST-Link Flasher
+<p align="center">
+  <img src="docs/imgs/logo.png" alt="Batch ST-Link Flasher logo" width="112" height="112">
+</p>
 
-Desktop app to flash the **same firmware** onto **multiple STM32 targets in parallel**, each via its own **ST-Link V2** programmer, driven by **OpenOCD**.
+<h1 align="center">Batch ST-Link Flasher</h1>
 
-**Version:** see `packaging/version.json` (auto-increments build on each `build_app.ps1` run)
+<p align="center">
+  <strong>Flash the same firmware to many STM32 boards at once</strong><br>
+  One OpenOCD process per ST-Link · HLA parallel · clone-safe sequential isolation
+</p>
 
-## Status
+<p align="center">
+  <a href="https://github.com/T-REX-XP/BatchSTLinkFlasher/actions/workflows/ci.yml"><img src="https://github.com/T-REX-XP/BatchSTLinkFlasher/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <a href="https://github.com/T-REX-XP/BatchSTLinkFlasher/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License: MIT"></a>
+  <img src="https://img.shields.io/badge/python-3.11%2B-blue.svg" alt="Python 3.11+">
+  <img src="https://img.shields.io/badge/platform-Windows%2010%2F11-0078D4.svg" alt="Windows">
+  <img src="https://img.shields.io/badge/UI-PySide6-41CD52.svg" alt="PySide6">
+  <img src="https://img.shields.io/badge/backend-OpenOCD-orange.svg" alt="OpenOCD">
+  <img src="https://img.shields.io/badge/coverage-%E2%89%A585%25-brightgreen.svg" alt="Coverage ≥85%">
+</p>
 
-| Phase | Status |
-|-------|--------|
-| 0 Docs + skeleton | Done |
-| 1 Models + OpenOCD argv | Done |
-| 2 Device discovery | Done |
-| 3 Single-device flash | Done |
-| 4 Parallel orchestrator | Done |
-| 5 Desktop UI | Done |
-| 6 Polish | Done |
+<p align="center">
+  <a href="#features">Features</a> ·
+  <a href="#screenshots">Screenshots</a> ·
+  <a href="#quick-start">Quick start</a> ·
+  <a href="#operator-flow">Operator flow</a> ·
+  <a href="#build--package">Build</a> ·
+  <a href="#documentation">Docs</a>
+</p>
 
-See `docs/plan.md`.
+---
 
-## Docs
+<p align="center">
+  <img src="docs/imgs/mainScreen.png" alt="Main window — device table, Identify LED, OpenOCD config, and live log" width="920">
+</p>
 
-| Document | Description |
-|----------|-------------|
-| [docs/requirements.md](docs/requirements.md) | Product requirements (AI-ready) |
-| [docs/architecture.md](docs/architecture.md) | Design & module layout |
-| [docs/dual-flash-strategy.md](docs/dual-flash-strategy.md) | Parallel HLA + sequential clone isolation |
-| [docs/plan.md](docs/plan.md) | Phased implementation checklist |
-| [docs/openocd-integration.md](docs/openocd-integration.md) | OpenOCD multi-adapter notes |
-| [docs/packaging.md](docs/packaging.md) | Packaging overview |
-| [scripts/README.md](scripts/README.md) | Build scripts (deps → app → installer) |
-| [AGENTS.md](AGENTS.md) | Rules for AI agents |
-| [CHANGELOG.md](CHANGELOG.md) | Change history |
+<p align="center"><em>Main window: multi-adapter table, USB port column, Identify LED, flash config, and session log.</em></p>
 
-## Prerequisites
+## Why this exists
 
-**Developers (build from source)**
+Factory and lab setups often flash **many identical boards** with **one ST-Link each**.
+OpenOCD can pin genuine probes with `hla_serial`, but cheap clones often share a
+placeholder serial (`%`). This app handles both:
 
-- Windows 10/11
-- Python 3.11+
-- Optional: OpenOCD on `PATH` for live flash tests
+| Probe | Strategy |
+|-------|----------|
+| Unique HLA serial | **Parallel** — one OpenOCD per adapter |
+| Clone / no HLA | **Sequential** + Windows USB isolation |
 
-**Operators (installed EXE)**
+Details and diagrams: [docs/dual-flash-strategy.md](docs/dual-flash-strategy.md).
 
-- Windows 10/11
-- No system Python needed (embedded in the EXE)
-- OpenOCD is bundled when you use `scripts\build_installer.ps1`
-- Optional: ST official ST-Link USB driver
+## Features
 
-## Quick install (Windows)
+- Discover ST-Links via Windows PnP (optional `st-info` / pyusb)
+- Device table with serial, VID/PID, **USB port / hub**, HLA status
+- **Identify LED** — blink a probe’s COM LED to find it in a cable bundle
+- Dual flash strategy (HLA parallel / clone isolation)
+- Live per-device logs, progress, cancel, text/JSON export
+- Themes: System · Light · Dark
+- Packaged Windows app with **bundled OpenOCD**
+
+## Screenshots
+
+| Main UI |
+|:-------:|
+| ![Batch ST-Link Flasher main window](docs/imgs/mainScreen.png) |
+
+App icon / About artwork: `docs/imgs/logo.png`
+
+## Quick start
+
+**Developers**
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File scripts\install_build_deps.ps1
@@ -55,51 +77,80 @@ powershell -ExecutionPolicy Bypass -File scripts\install_build_deps.ps1
 python -m batch_stlink_flasher
 ```
 
-## Manual setup
+**From a venv manually**
 
 ```bash
-cd BatchSTLinkFlasher
 python -m venv .venv
 .venv\Scripts\activate
 pip install -e ".[dev]"
 pytest
-python -m batch_stlink_flasher.discover
-python -m batch_stlink_flasher.flash --firmware app.elf --target target/stm32f1x.cfg --dry-run
 python -m batch_stlink_flasher
 ```
 
-Parallel flashing needs unique HLA serials on each probe; a single clone with serial `%` still works alone.
+| Shortcut | Action |
+|----------|--------|
+| `Ctrl+Return` | Start flash |
+| `Esc` | Cancel |
+| `Ctrl+S` | Export log |
+| `F5` | Refresh devices |
 
-Shortcuts: **Ctrl+Return** flash, **Esc** cancel, **Ctrl+S** export log, **F5** refresh.
+## Prerequisites
 
-## Build distributable / installer
+| Audience | Needs |
+|----------|--------|
+| **Developers** | Windows 10/11, Python 3.11+, optional OpenOCD on `PATH` |
+| **Operators** | Windows 10/11; no system Python; OpenOCD bundled by `build_installer.ps1`; optional ST USB driver |
 
-```powershell
-# 1) build deps  2) app  3) Setup.exe / zip  (see scripts/README.md)
-powershell -ExecutionPolicy Bypass -File scripts\install_build_deps.ps1 -InstallSystemDeps
-powershell -ExecutionPolicy Bypass -File scripts\build_app.ps1
-powershell -ExecutionPolicy Bypass -File scripts\build_installer.ps1 -ZipPortable
-
-# Or one-shot:
-powershell -ExecutionPolicy Bypass -File scripts\build_all.ps1 -ZipPortable -InstallSystemDeps
-
-# Install the built app for the current user
-powershell -ExecutionPolicy Bypass -File scripts\install.ps1 -DesktopShortcut -Force
-
-# Publish a GitHub Release from tag v0.1.0
-powershell -ExecutionPolicy Bypass -File scripts\create_release_tag.ps1 -Version 0.1.0 -Commit -Push
-```
-
-See [scripts/README.md](scripts/README.md) and [docs/packaging.md](docs/packaging.md).
+Identify LED and clone isolation may require **Run as administrator** if Windows blocks device disable.
 
 ## Operator flow
 
-1. Plug in 1–N ST-Links; refresh device list.
-2. Select firmware (`.elf` / `.hex` / `.bin`).
-3. Choose OpenOCD interface + target scripts.
-4. Select devices → **Flash**.
-5. Watch per-device progress and logs; export or cancel if needed.
+1. Plug in ST-Links — splash scans, or click **Refresh devices**.
+2. Map rows with the **USB port** column and/or **Identify LED**.
+3. Choose firmware (`.elf` / `.hex` / `.bin`) and OpenOCD interface + target scripts.
+4. Check adapters → **Flash**.
+5. Watch per-device status; **Cancel** or export the session log if needed.
+
+## Build & package
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\install_build_deps.ps1 -InstallSystemDeps
+powershell -ExecutionPolicy Bypass -File scripts\build_app.ps1
+powershell -ExecutionPolicy Bypass -File scripts\build_installer.ps1 -ZipPortable
+```
+
+One-shot: `scripts\build_all.ps1 -ZipPortable -InstallSystemDeps`
+
+**Setup.exe** needs [Inno Setup 6](https://jrsoftware.org/isdl.php). Without it, step 3 still
+bundles OpenOCD into `dist\BatchSTLinkFlasher\` (`Setup.exe skipped`). Install with:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\install.ps1 -DesktopShortcut -Force
+```
+
+Version source: `packaging/version.json` (build bumps on each `build_app.ps1` run).
+
+## Documentation
+
+| Document | Description |
+|----------|-------------|
+| [docs/requirements.md](docs/requirements.md) | Product contract (`FR-*` / `NFR-*`) |
+| [docs/architecture.md](docs/architecture.md) | Modules & threading |
+| [docs/dual-flash-strategy.md](docs/dual-flash-strategy.md) | Parallel HLA + sequential clones |
+| [docs/openocd-integration.md](docs/openocd-integration.md) | OpenOCD CLI, ports, serials |
+| [docs/packaging.md](docs/packaging.md) | Build / installer / GitHub Release |
+| [docs/plan.md](docs/plan.md) | Implementation phases |
+| [scripts/README.md](scripts/README.md) | Packaging scripts |
+| [AGENTS.md](AGENTS.md) | AI agent working rules |
+| [CHANGELOG.md](CHANGELOG.md) | Release notes |
+
+Images for this README live in [`docs/imgs/`](docs/imgs/).
+
+## Status
+
+Phases **0–6** complete (docs → discovery → flash → orchestrator → UI → packaging).
+Remaining items are **operator hardware** checklists in [docs/plan.md](docs/plan.md).
 
 ## License
 
-MIT
+[MIT](LICENSE)

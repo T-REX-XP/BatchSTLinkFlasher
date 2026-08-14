@@ -6,6 +6,7 @@ Use this checklist in order. Check items off in PRs / commits. Update `CHANGELOG
 
 - [x] AI-ready `docs/requirements.md`
 - [x] `docs/architecture.md`, `docs/plan.md`, `docs/openocd-integration.md`
+- [x] `docs/dual-flash-strategy.md`
 - [x] `README.md`, `AGENTS.md`, `CHANGELOG.md`
 - [x] Python package skeleton under `src/batch_stlink_flasher/`
 - [x] `.gitignore`, `pyproject.toml`
@@ -39,21 +40,23 @@ Use this checklist in order. Check items off in PRs / commits. Update `CHANGELOG
 
 **Done when**: one device flashes reliably from code (no UI).
 
-## Phase 4 — Parallel orchestrator
+## Phase 4 — Orchestrator (HLA parallel + clone sequential)
 
 - [x] `FlashOrchestrator`: N jobs, unique ports, aggregate summary
+- [x] Dual strategy: HLA-bound parallel; unbound clones sequential + Windows PnP isolation
 - [x] Cancel all / cancel one
 - [x] Ensure one failed job does not abort siblings
 - [x] CLI: `python -m batch_stlink_flasher.flash --all` / `--adapters 1,2`
-- [ ] Manual: flash 2+ probes in parallel on hardware (operator)
+- [ ] Manual: flash 2+ probes (HLA parallel and/or clone sequential) on hardware (operator)
 
-**Done when**: 2+ devices flash in parallel from a small script.
+**Done when**: multi-adapter flash works from a small script for both probe types.
 
 ## Phase 5 — Desktop UI
 
 - [x] Main window layout per `FR-UX-01`
 - [x] Wire discovery refresh, config panel, start/cancel
 - [x] Per-device status + log view
+- [x] USB port/hub column; Identify LED (`FR-DISC-07`)
 - [x] Validation before Start (`FR-UX-02`)
 - [x] Settings persistence
 - [ ] Manual: run UI against real ST-Link + OpenOCD (operator)

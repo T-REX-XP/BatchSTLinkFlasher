@@ -72,13 +72,17 @@ src/batch_stlink_flasher/
 ```python
 @dataclass(frozen=True)
 class AdapterInfo:
-    serial: str              # human / st-info serial
-    hla_serial: str          # string passed to OpenOCD
+    serial: str              # human / st-info serial (may be "%" on clones)
+    hla_serial: str          # string passed to OpenOCD (empty if unbound)
     vid: int
     pid: int
     product: str
     manufacturer: str
-    usb_path: str | None
+    usb_path: str | None     # full PnP instance id
+    usb_port: int | None     # from LocationInformation Port_#N
+    usb_hub: int | None      # from LocationInformation Hub_#M
+    multi_adapter_ok: bool   # True when HLA parallel binding is safe
+    skip_reason: str | None
 
 class JobState(Enum):
     IDLE = "idle"
@@ -115,21 +119,23 @@ Details and example CLI: `docs/openocd-integration.md`.
 ## 5. Threading model
 
 - **UI thread**: widgets only.
-- **Discovery**: worker `QThread` or `QObject` + `moveToThread`; emit `adapters_updated`.
-- **Flash jobs**: each job runs OpenOCD in a `QProcess` or `subprocess` on a worker; stdout/stderr → queued signals → UI append log.
-- **Orchestrator**: lives on a controller object; starts jobs, aggregates summary counts.
+- **Discovery**: `DiscoveryWorker` (`QThread`); emit adapters list.
+- **Identify LED**: `IdentifyWorker` — PnP disable/enable off the UI thread.
+- **Flash jobs**: `FlashWorker` runs `FlashOrchestrator`; stdout/stderr → queued signals → UI.
+- **Orchestrator**: HLA jobs on threads in parallel; clones sequential with isolation.
 
 Never call blocking USB/OpenOCD APIs on the UI thread.
 
 ## 6. Settings
 
-Persist with `QSettings` (org=`BatchSTLinkFlasher`, app=`BatchSTLinkFlasher`) or `~/.config/...`:
+Persist with `QSettings` (org=`BatchSTLinkFlasher`, app=`BatchSTLinkFlasher`):
 
 - `openocd_path`
 - `last_firmware_path`
 - `interface_cfg`, `target_cfg`
 - `bin_base_address`
 - `job_timeout_sec`
+- `theme_mode` (system / light / dark)
 
 ## 7. Error taxonomy
 
@@ -137,7 +143,8 @@ Persist with `QSettings` (org=`BatchSTLinkFlasher`, app=`BatchSTLinkFlasher`) or
 |--------|--------------|
 | OpenOCD not found | Block Start; show path error |
 | No adapters | Block Start |
-| Missing serial | Device row disabled + reason |
+| Missing serial / not selectable | Device row disabled + reason |
+| Clone isolation failed | Device Failed + elevate / unplug hint |
 | Process non-zero exit | Device Failed + last error line |
 | Timeout | Kill + Failed |
 | Cancel | Cancelled (not counted as Failed) |
@@ -146,4 +153,4 @@ Persist with `QSettings` (org=`BatchSTLinkFlasher`, app=`BatchSTLinkFlasher`) or
 
 - Alternate backends (`st-flash`) behind a `ProgrammerBackend` protocol
 - Per-device firmware mapping
-- Embedded OpenOCD distribution
+- Optional “always sequential” operator override (HLA included)

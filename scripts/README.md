@@ -6,7 +6,7 @@ Three-step Windows packaging:
 |------|--------|--------|
 | 1 | `install_build_deps.ps1` | `.venv`, OpenOCD under `vendor\runtime\` |
 | 2 | `build_app.ps1` | `dist\BatchSTLinkFlasher\` |
-| 3 | `build_installer.ps1` | Bundle OpenOCD + `Setup.exe` / zip |
+| 3 | `build_installer.ps1` | Bundle OpenOCD + optional `Setup.exe` / zip |
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File scripts\install_build_deps.ps1 -InstallSystemDeps
@@ -16,9 +16,15 @@ powershell -ExecutionPolicy Bypass -File scripts\build_installer.ps1 -ZipPortabl
 
 All three at once: `scripts\build_all.ps1 -ZipPortable -InstallSystemDeps`
 
+## Setup.exe / Inno Setup
+
+Step 3 needs [Inno Setup 6](https://jrsoftware.org/isdl.php) (`ISCC.exe`) to compile
+`Setup.exe`. Without it you still get a runnable `dist\BatchSTLinkFlasher\` with
+bundled OpenOCD; the script prints `Setup.exe skipped`.
+
 ## Operator install
 
-Prefer `Setup.exe` from step 3. Without Inno:
+Prefer `Setup.exe` from step 3 when available. Otherwise:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File scripts\install.ps1 -DesktopShortcut -Force

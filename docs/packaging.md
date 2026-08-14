@@ -22,7 +22,18 @@ powershell -ExecutionPolicy Bypass -File scripts\build_all.ps1 -ZipPortable -Ins
 | 2 | `build_app.ps1` | `dist\BatchSTLinkFlasher\` (EXE + Qt) |
 | 3 | `build_installer.ps1` | OpenOCD bundled + optional `Setup.exe` / zip |
 
-## Operator runtime (what the Setup.exe ships)
+## Inno Setup (Setup.exe)
+
+`build_installer.ps1` looks for `ISCC.exe` under Program Files / LocalAppData.
+If missing, it **skips Setup.exe** (yellow warning) but still:
+
+- Bundles OpenOCD into `dist\BatchSTLinkFlasher\tools\openocd`
+- Can write a portable zip with `-ZipPortable`
+
+Install [Inno Setup 6](https://jrsoftware.org/isdl.php), then re-run step 3 to produce
+`dist\BatchSTLinkFlasher-<version>-Setup.exe`.
+
+## Operator runtime (what the packaged app ships)
 
 | Dependency | How it is provided |
 |------------|--------------------|
