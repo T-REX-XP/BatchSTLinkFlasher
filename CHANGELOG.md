@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- Windows installer scripts: `scripts/install.ps1`, `scripts/uninstall.ps1`, `scripts/build_installer.ps1`
+- Inno Setup project `packaging/installer.iss` for Setup.exe builds
+
 ### Changed
 
 ### Fixed

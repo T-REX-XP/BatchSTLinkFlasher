@@ -70,6 +70,7 @@ Use this checklist in order. Check items off in PRs / commits. Update `CHANGELOG
 - [x] GitHub Actions CI pipeline
 - [x] Test coverage gate minimum 85%
 - [x] Autoinstaller / bootstrap script for dependencies + docs pointers
+- [x] Windows end-user installer (`scripts/install.ps1`) + uninstaller + Inno Setup script
 
 ## Suggested commit style
 
@@ -79,11 +80,3 @@ Use this checklist in order. Check items off in PRs / commits. Update `CHANGELOG
 - `test: …` / `chore: …` as appropriate
 
 Keep commits small and aligned to one phase item when possible.
-
-
-## Phase 7 — new features
-- [ ] implement build scripts to prepare dist
-- [ ] implement github pipelines
-- [ ] test coverage must be minimum 85%
-- [ ] Implement autoinstaller script for the dependencies and documentation
-- [ ] Better ui, Icons for buttons, etc...

@@ -63,10 +63,14 @@ Parallel flashing needs unique HLA serials on each probe; a single clone with se
 
 Shortcuts: **Ctrl+Return** flash, **Esc** cancel, **Ctrl+S** export log, **F5** refresh.
 
-## Build distributable
+## Build distributable / installer
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File scripts\build_windows.ps1
+# Per-user install from a fresh build
+powershell -ExecutionPolicy Bypass -File scripts\install.ps1 -Build -DesktopShortcut -Force
+
+# Or produce Setup.exe / portable zip (Inno Setup optional)
+powershell -ExecutionPolicy Bypass -File scripts\build_installer.ps1 -ZipPortable
 ```
 
 See [docs/packaging.md](docs/packaging.md).
