@@ -113,20 +113,24 @@ Identify LED and clone isolation may require **Run as administrator** if Windows
 
 ## Build & package
 
+Produces **`BatchSTLinkFlasher.exe`** (onedir) and a single **`…-Setup.exe`** installer:
+
 ```powershell
 powershell -ExecutionPolicy Bypass -File scripts\install_build_deps.ps1 -InstallSystemDeps
 powershell -ExecutionPolicy Bypass -File scripts\build_app.ps1
-powershell -ExecutionPolicy Bypass -File scripts\build_installer.ps1 -ZipPortable
+powershell -ExecutionPolicy Bypass -File scripts\build_installer.ps1 -InstallInno -ZipPortable
 ```
 
-One-shot: `scripts\build_all.ps1 -ZipPortable -InstallSystemDeps`
+One-shot: `scripts\build_all.ps1 -ZipPortable -InstallSystemDeps -InstallInno`
 
-**Setup.exe** needs [Inno Setup 6](https://jrsoftware.org/isdl.php). Without it, step 3 still
-bundles OpenOCD into `dist\BatchSTLinkFlasher\` (`Setup.exe skipped`). Install with:
+| Output | Path |
+|--------|------|
+| App EXE | `dist\BatchSTLinkFlasher\BatchSTLinkFlasher.exe` |
+| Installer | `dist\BatchSTLinkFlasher-<ver>-Setup.exe` |
+| Portable zip | `dist\BatchSTLinkFlasher-<ver>-portable.zip` (optional) |
 
-```powershell
-powershell -ExecutionPolicy Bypass -File scripts\install.ps1 -DesktopShortcut -Force
-```
+**Setup.exe** needs [Inno Setup 6](https://jrsoftware.org/isdl.php). Use `-InstallInno` or
+`winget install JRSoftware.InnoSetup`. Details: [docs/packaging.md](docs/packaging.md).
 
 Version source: `packaging/version.json` (build bumps on each `build_app.ps1` run).
 

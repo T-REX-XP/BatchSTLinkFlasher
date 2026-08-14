@@ -1,10 +1,13 @@
 ; Inno Setup script for Batch ST-Link Flasher
 ; Requires: Inno Setup 6+ (https://jrsoftware.org/isinfo.php)
-; Build flow:
+; Build flow (produces a single Setup.exe for operators):
 ;   1) powershell -File scripts\build_app.ps1
-;   2) powershell -File scripts\build_installer.ps1
+;   2) powershell -File scripts\build_installer.ps1 [-InstallInno] [-ZipPortable]
 ;
-; Or: powershell -File scripts\build_all.ps1 -ZipPortable
+; Or: powershell -File scripts\build_all.ps1 -ZipPortable -InstallInno
+;
+; App payload is PyInstaller onedir under dist\BatchSTLinkFlasher\
+; (EXE + Qt + tools\openocd from build_installer.ps1).
 
 #define MyAppName "Batch ST-Link Flasher"
 #define MyAppId "BatchSTLinkFlasher"

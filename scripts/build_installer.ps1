@@ -1,20 +1,29 @@
 #Requires -Version 5.1
 <#
 .SYNOPSIS
-  Step 3/3 - Bundle OpenOCD and build Setup.exe / portable zip.
+  Step 3/3 - Bundle OpenOCD and build the single Setup.exe installer.
 
 .DESCRIPTION
   Packages dist\BatchSTLinkFlasher\ (from build_app.ps1):
   - Copies OpenOCD from vendor\runtime\openocd
   - Writes bundled-tools.json
+  - Compiles Inno Setup → dist\BatchSTLinkFlasher-<version>-Setup.exe
   - Optional portable zip (-ZipPortable)
-  - Optional Inno Setup.exe (skipped if ISCC missing, or with -SkipInno)
+
+  Operators distribute the Setup.exe (one file). The installed app is an onedir
+  layout with BatchSTLinkFlasher.exe + tools\openocd.
 
 .PARAMETER ZipPortable
-  Create dist\BatchSTLinkFlasher-<version>-portable.zip
+  Also create dist\BatchSTLinkFlasher-<version>-portable.zip
 
 .PARAMETER SkipInno
-  Do not compile Setup.exe.
+  Do not compile Setup.exe (OpenOCD bundle / zip still run).
+
+.PARAMETER RequireInno
+  Fail if ISCC.exe is missing (default: on, unless -SkipInno).
+
+.PARAMETER InstallInno
+  Try to install Inno Setup 6 via winget or chocolatey when missing.
 
 .PARAMETER SkipOpenOcd
   Do not bundle OpenOCD (not recommended).
@@ -23,6 +32,8 @@
 param(
     [switch]$ZipPortable,
     [switch]$SkipInno,
+    [switch]$RequireInno,
+    [switch]$InstallInno,
     [switch]$SkipOpenOcd
 )
 
@@ -38,6 +49,11 @@ $VendorOpenOcd = Join-Path $Root "vendor\runtime\openocd"
 $ManifestPath = Join-Path $Root "packaging\runtime-deps.json"
 $Iss = Join-Path $Root "packaging\installer.iss"
 
+# Default: require Setup.exe unless explicitly skipped.
+if (-not $PSBoundParameters.ContainsKey("RequireInno")) {
+    $RequireInno = -not $SkipInno
+}
+
 function Find-ISCC {
     foreach ($path in @(
             "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe",
@@ -51,13 +67,33 @@ function Find-ISCC {
     return $null
 }
 
-Write-Host "==> Step 3/3: build installer" -ForegroundColor Cyan
+function Install-InnoSetup {
+    Write-Host "==> Installing Inno Setup 6..." -ForegroundColor Cyan
+    $winget = Get-Command winget -ErrorAction SilentlyContinue
+    if ($winget) {
+        & winget install --id JRSoftware.InnoSetup -e --accept-package-agreements --accept-source-agreements --silent
+        $env:Path = [System.Environment]::GetEnvironmentVariable("Path", "Machine") + ";" +
+            [System.Environment]::GetEnvironmentVariable("Path", "User")
+        $found = Find-ISCC
+        if ($found) { return $found }
+    }
+    $choco = Get-Command choco -ErrorAction SilentlyContinue
+    if ($choco) {
+        & choco install innosetup -y --no-progress
+        $found = Find-ISCC
+        if ($found) { return $found }
+    }
+    return $null
+}
+
+Write-Host "==> Step 3/3: build installer (Setup.exe)" -ForegroundColor Cyan
 
 if (-not (Test-Path (Join-Path $DistApp "BatchSTLinkFlasher.exe"))) {
     throw "Missing dist payload at $DistApp. Run scripts\build_app.ps1 first."
 }
 
 $ver = Read-ProjectVersion
+Sync-VersionArtifacts -Info $ver
 $Version = $ver.Version
 Write-Host ("==> Packaging version {0}" -f $Version)
 
@@ -88,7 +124,8 @@ if (-not $SkipOpenOcd) {
         OpenOcdName    = [string]$manifest.openocd.name
         Notes          = @(
             "Python runtime is embedded in BatchSTLinkFlasher.exe (no system Python required).",
-            "OpenOCD is bundled under tools\openocd."
+            "OpenOCD is bundled under tools\openocd.",
+            "Operators should prefer the Setup.exe installer from this step."
         )
     } | ConvertTo-Json | Set-Content -Path (Join-Path $DistApp "bundled-tools.json") -Encoding UTF8
 } else {
@@ -110,27 +147,62 @@ if ($ZipPortable) {
     Compress-Archive -Path (Join-Path $DistApp "*") -DestinationPath $zip -Force
 }
 
+$setupPath = Join-Path $Root "dist\$AppId-$Version-Setup.exe"
+
 if (-not $SkipInno) {
     $iscc = Find-ISCC
+    if (-not $iscc -and $InstallInno) {
+        $iscc = Install-InnoSetup
+    }
     if (-not $iscc) {
-        Write-Host "Inno Setup (ISCC.exe) not found - Setup.exe skipped." -ForegroundColor Yellow
-        Write-Host "Install from https://jrsoftware.org/isinfo.php then re-run this script."
+        $hint = @"
+Inno Setup (ISCC.exe) not found — cannot build Setup.exe.
+
+Install Inno Setup 6, then re-run this script:
+  https://jrsoftware.org/isdl.php
+  winget install JRSoftware.InnoSetup
+  choco install innosetup
+
+Or re-run with auto-install:
+  powershell -File scripts\build_installer.ps1 -InstallInno -ZipPortable
+
+To skip the installer (onedir / zip only):
+  powershell -File scripts\build_installer.ps1 -SkipInno -ZipPortable
+"@
+        if ($RequireInno) {
+            throw $hint
+        }
+        Write-Host $hint -ForegroundColor Yellow
     } else {
-        Write-Host "==> Compiling Inno Setup installer with $iscc" -ForegroundColor Cyan
+        if (-not (Test-Path $Iss)) {
+            throw "Missing Inno script: $Iss"
+        }
+        Write-Host "==> Compiling Setup.exe with $iscc" -ForegroundColor Cyan
         & $iscc $Iss
-        $setup = Join-Path $Root "dist\$AppId-$Version-Setup.exe"
-        if (Test-Path $setup) {
-            Write-Host "Setup.exe: $setup" -ForegroundColor Green
-        } else {
-            Get-ChildItem (Join-Path $Root "dist") -Filter "*Setup*.exe" | ForEach-Object {
-                Write-Host "Setup.exe: $($_.FullName)" -ForegroundColor Green
+        if (-not (Test-Path $setupPath)) {
+            $alt = Get-ChildItem (Join-Path $Root "dist") -Filter "*Setup*.exe" -ErrorAction SilentlyContinue |
+                Sort-Object LastWriteTime -Descending |
+                Select-Object -First 1
+            if ($alt) {
+                $setupPath = $alt.FullName
             }
         }
+        if (-not (Test-Path $setupPath)) {
+            throw "ISCC finished but Setup.exe was not found under dist\"
+        }
+        Write-Host ("Setup.exe: {0}" -f $setupPath) -ForegroundColor Green
     }
+} else {
+    Write-Host "Skipping Setup.exe (-SkipInno)" -ForegroundColor Yellow
 }
 
 Write-Host ""
 Write-Host "Done. Artifacts under dist\" -ForegroundColor Green
-Write-Host "  Onedir : $DistApp"
-Write-Host "  Or run: powershell -File scripts\install.ps1 -DesktopShortcut -Force"
+Write-Host "  App onedir : $DistApp"
+if (Test-Path $setupPath) {
+    Write-Host "  Installer  : $setupPath" -ForegroundColor Green
+}
+if ($ZipPortable) {
+    Write-Host ("  Portable   : dist\{0}-{1}-portable.zip" -f $AppId, $Version)
+}
 Write-Host "See scripts\README.md"

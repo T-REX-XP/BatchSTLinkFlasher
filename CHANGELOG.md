@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
-- Identify LED: blink ST-Link COM LED via USB re-enumeration to map table rows to physical dongles
+- Identify LED: blink ST-Link COM LED via USB re-enumeration; auto UAC elevation when Windows denies PnP disable
 - Device table shows USB port / hub (from Windows ``LocationInformation``)
 - Dual flash strategy: HLA originals flash in parallel; clones flash sequentially with Windows USB isolation
 - Docs: ``docs/dual-flash-strategy.md`` (flow / sequence / isolation diagrams)
@@ -33,6 +33,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
+- CI/Release workflows: bump to Node 24 actions (``checkout@v5``, ``setup-python@v6``, ``action-gh-release@v3``)
+- Packaging: Setup.exe is required by default (``build_installer.ps1``); ``-InstallInno`` / ``-InstallSystemDeps`` can install Inno Setup; app build uses ``packaging/batch_stlink_flasher.spec``
 - README redesigned with badges, feature summary, and screenshot under ``docs/imgs/``
 - Documentation synced with current product (README, requirements, architecture, plan, packaging, scripts)
 - App logo: flat charcoal tile + chip; transparent outside rounded corners

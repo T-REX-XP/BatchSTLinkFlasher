@@ -60,6 +60,7 @@ def test_disable_enable_locate_mocked(monkeypatch) -> None:
         wdc.ctypes,
         "WinDLL",
         lambda *_a, **_k: type("D", (), {
+            "CM_Locate_DevNodeW": staticmethod(lambda *_a, **_k: wdc._CR_SUCCESS),
             "CM_Disable_DevNode": staticmethod(lambda *_a, **_k: wdc._CR_SUCCESS),
             "CM_Enable_DevNode": staticmethod(lambda *_a, **_k: wdc._CR_SUCCESS),
         })(),

@@ -72,9 +72,45 @@ def test_blink_raises_when_disable_fails(monkeypatch) -> None:
         "batch_stlink_flasher.services.identify.enable_device",
         lambda _iid: True,
     )
+    monkeypatch.setattr(
+        "batch_stlink_flasher.services.identify.is_access_denied_status",
+        lambda: False,
+    )
     monkeypatch.setattr("batch_stlink_flasher.services.identify.time.sleep", lambda _s: None)
     with pytest.raises(DeviceIsolationError, match="could not disable"):
-        blink_adapter_led(_adapter(), pulses=1)
+        blink_adapter_led(_adapter(), pulses=1, allow_elevate=False)
+
+
+def test_blink_elevates_on_access_denied(monkeypatch) -> None:
+    calls = {"n": 0}
+
+    def _disable(_iid: str) -> bool:
+        calls["n"] += 1
+        return False
+
+    monkeypatch.setattr(
+        "batch_stlink_flasher.services.identify.disable_device",
+        _disable,
+    )
+    monkeypatch.setattr(
+        "batch_stlink_flasher.services.identify.enable_device",
+        lambda _iid: True,
+    )
+    monkeypatch.setattr(
+        "batch_stlink_flasher.services.identify.is_access_denied_status",
+        lambda: True,
+    )
+    monkeypatch.setattr("batch_stlink_flasher.services.identify.time.sleep", lambda _s: None)
+    monkeypatch.setattr(
+        "batch_stlink_flasher.util.win_elevate.is_user_an_admin",
+        lambda: False,
+    )
+    monkeypatch.setattr(
+        "batch_stlink_flasher.util.win_elevate.run_elevated",
+        lambda *_a, **_k: 0,
+    )
+    blink_adapter_led(_adapter(), pulses=1, allow_elevate=True)
+    assert calls["n"] == 1
 
 
 def test_blink_raises_when_enable_fails(monkeypatch) -> None:

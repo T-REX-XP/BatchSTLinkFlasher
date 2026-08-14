@@ -16,7 +16,10 @@
   Forwarded to build_app.ps1
 
 .PARAMETER SkipInno
-  Forwarded to build_installer.ps1
+  Forwarded to build_installer.ps1 (skip Setup.exe).
+
+.PARAMETER InstallInno
+  Forwarded to build_installer.ps1 (auto-install Inno Setup if missing).
 
 .PARAMETER ZipPortable
   Forwarded to build_installer.ps1
@@ -29,6 +32,7 @@ param(
     [switch]$InstallSystemDeps,
     [switch]$NoBump,
     [switch]$SkipInno,
+    [switch]$InstallInno,
     [switch]$ZipPortable,
     [switch]$SkipTests
 )
@@ -37,7 +41,7 @@ $ErrorActionPreference = "Stop"
 $Root = Split-Path -Parent $PSScriptRoot
 Set-Location $Root
 
-Write-Host "==> build_all: deps -> app -> installer" -ForegroundColor Cyan
+Write-Host "==> build_all: deps -> app -> Setup.exe" -ForegroundColor Cyan
 
 $depArgs = @()
 if ($InstallSystemDeps) { $depArgs += "-InstallSystemDeps" }
@@ -51,6 +55,7 @@ if ($NoBump) { $appArgs += "-NoBump" }
 $instArgs = @()
 if ($ZipPortable) { $instArgs += "-ZipPortable" }
 if ($SkipInno) { $instArgs += "-SkipInno" }
+if ($InstallInno) { $instArgs += "-InstallInno" }
 & (Join-Path $PSScriptRoot "build_installer.ps1") @instArgs
 
 Write-Host "==> build_all complete" -ForegroundColor Green

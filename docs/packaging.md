@@ -1,6 +1,25 @@
 # Packaging & installer
 
-Primary docs for *how to build* live in **[scripts/README.md](../scripts/README.md)**.
+Primary how-to: **[scripts/README.md](../scripts/README.md)**.
+
+## Goal artifacts
+
+| Artifact | Description |
+|----------|-------------|
+| **`BatchSTLinkFlasher-<version>-Setup.exe`** | Single Windows installer for operators (Inno Setup) |
+| `dist\BatchSTLinkFlasher\BatchSTLinkFlasher.exe` | App EXE inside an onedir layout (+ Qt DLLs) |
+| `tools\openocd\` | Bundled OpenOCD next to the EXE (added in step 3) |
+| `…-portable.zip` | Optional zip of the onedir folder |
+
+Operators should ship/download **Setup.exe**. After install they launch
+`BatchSTLinkFlasher.exe` from the install directory.
+
+### Why onedir + Setup.exe (not PyInstaller `--onefile`)
+
+- PySide6/Qt needs plugins beside the process.
+- OpenOCD is a full tree (`bin` + `share/openocd/scripts`), not one binary.
+- Inno Setup compresses the folder into **one installer EXE** — that is the
+  “single file” distribution.
 
 ## Recommended build pipeline (3 steps)
 
@@ -10,49 +29,50 @@ powershell -ExecutionPolicy Bypass -File scripts\build_app.ps1
 powershell -ExecutionPolicy Bypass -File scripts\build_installer.ps1 -ZipPortable
 ```
 
-Or all at once:
+Or all at once (also tries to install Inno if needed):
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File scripts\build_all.ps1 -ZipPortable -InstallSystemDeps
+powershell -ExecutionPolicy Bypass -File scripts\build_all.ps1 -ZipPortable -InstallSystemDeps -InstallInno
 ```
 
 | Step | Script | Output |
 |------|--------|--------|
-| 1 | `install_build_deps.ps1` | `.venv`, OpenOCD under `vendor\runtime\` |
-| 2 | `build_app.ps1` | `dist\BatchSTLinkFlasher\` (EXE + Qt) |
-| 3 | `build_installer.ps1` | OpenOCD bundled + optional `Setup.exe` / zip |
+| 1 | `install_build_deps.ps1` | `.venv`, OpenOCD under `vendor\runtime\`, optional Inno |
+| 2 | `build_app.ps1` | `dist\BatchSTLinkFlasher\` via `packaging/batch_stlink_flasher.spec` |
+| 3 | `build_installer.ps1` | OpenOCD bundle + **Setup.exe** (+ optional zip) |
 
-## Inno Setup (Setup.exe)
+## Inno Setup (required for Setup.exe)
 
-`build_installer.ps1` looks for `ISCC.exe` under Program Files / LocalAppData.
-If missing, it **skips Setup.exe** (yellow warning) but still:
+`build_installer.ps1` looks for `ISCC.exe` and **fails** if missing (unless
+`-SkipInno`).
 
-- Bundles OpenOCD into `dist\BatchSTLinkFlasher\tools\openocd`
-- Can write a portable zip with `-ZipPortable`
+Install options:
 
-Install [Inno Setup 6](https://jrsoftware.org/isdl.php), then re-run step 3 to produce
-`dist\BatchSTLinkFlasher-<version>-Setup.exe`.
+```powershell
+winget install JRSoftware.InnoSetup
+# or
+choco install innosetup
+# or during packaging:
+powershell -File scripts\build_installer.ps1 -InstallInno -ZipPortable
+```
 
-## Operator runtime (what the packaged app ships)
+Script: `packaging/installer.iss` (version synced from `packaging/version.json`).
+
+## Operator runtime
 
 | Dependency | How it is provided |
 |------------|--------------------|
-| **Python** | Embedded inside `BatchSTLinkFlasher.exe` by PyInstaller — operators do **not** install Python |
-| **OpenOCD** | Bundled under `tools\openocd\` by `build_installer.ps1` |
-| **VC++ runtime** | Optional on build PC via `-InstallSystemDeps` |
-| **ST-Link USB driver** | Optional; Windows PnP discovery works with ST’s official driver if present |
+| **Python** | Embedded in `BatchSTLinkFlasher.exe` (PyInstaller) |
+| **OpenOCD** | `tools\openocd\` via `build_installer.ps1` |
+| **VC++ runtime** | Optional via `-InstallSystemDeps` |
+| **ST-Link USB driver** | Optional; Windows PnP with ST’s driver |
 
-Pinned OpenOCD download: `packaging/runtime-deps.json` (xPack OpenOCD).
+Pinned OpenOCD: `packaging/runtime-deps.json` (xPack OpenOCD).
 
-## Install on a PC (after step 3)
+## Install without Setup.exe
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File scripts\install.ps1 -DesktopShortcut -Force
-```
-
-Uninstall:
-
-```powershell
 powershell -ExecutionPolicy Bypass -File scripts\uninstall.ps1
 ```
 
@@ -60,16 +80,15 @@ powershell -ExecutionPolicy Bypass -File scripts\uninstall.ps1
 
 ### CI (`.github/workflows/ci.yml`)
 
-Runs on push/PR: install package + tests (coverage ≥ 85%).
+Push/PR: tests with coverage ≥ 85%.
 
 ### Release (`.github/workflows/release.yml`)
 
-Triggered by tag **`vMAJOR.MINOR.PATCH`** (example: `v0.1.0`):
+Tag **`vMAJOR.MINOR.PATCH`** (e.g. `v0.1.0`):
 
-1. `install_build_deps.ps1`
+1. Install deps + Inno Setup (Chocolatey)
 2. `build_app.ps1 -NoBump`
-3. `build_installer.ps1 -ZipPortable` (+ Inno Setup on the runner)
-4. Publishes GitHub Release artifacts
+3. `build_installer.ps1 -ZipPortable` → publishes Setup.exe + portable zip
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File scripts\create_release_tag.ps1 -Version 0.1.0 -Commit -Push
@@ -81,14 +100,15 @@ powershell -ExecutionPolicy Bypass -File scripts\create_release_tag.ps1 -Version
 .\.venv\Scripts\python scripts\generate_app_icon.py
 ```
 
-See `scripts/README.md` for asset names.
-
-## Versioning & build numbers
+## Versioning
 
 Source of truth: `packaging/version.json` (`major.minor.patch.build`).
 
 ```powershell
-powershell -File scripts\build_app.ps1          # bumps 0.1.0.N -> 0.1.0.N+1
-powershell -File scripts\build_app.ps1 -NoBump  # keep current version
+powershell -File scripts\build_app.ps1          # bumps build
+powershell -File scripts\build_app.ps1 -NoBump  # keep version
 powershell -File scripts\bump_version.ps1 -Patch
 ```
+
+`bump_version.ps1` / build scripts sync `_version.py`, `pyproject.toml`, and
+`packaging/installer.iss`.

@@ -300,7 +300,8 @@ class MainWindow(QMainWindow):
                 self,
                 "Identify LED",
                 "Check exactly one adapter, then click Identify LED.\n\n"
-                "Watch the programmer COM LED — it blinks during USB re-enumeration.",
+                "Watch the programmer COM LED — Windows may ask for Administrator "
+                "(UAC) so the probe can be briefly re-enumerated.",
             )
             return
         adapter = selected[0]
@@ -342,8 +343,9 @@ class MainWindow(QMainWindow):
             self,
             "Identify LED failed",
             f"{message}\n\n"
-            "Tip: run the app as Administrator if Windows blocks device disable, "
-            "or use USB port numbers in the table to map adapters.",
+            "Identify LED briefly disables the USB device (needs Administrator).\n"
+            "Approve the UAC prompt, or start the app with Run as administrator.\n"
+            "You can also match adapters using the USB port column.",
         )
 
     def _on_identify_finished(self) -> None:

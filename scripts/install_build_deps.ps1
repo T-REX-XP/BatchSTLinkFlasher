@@ -13,7 +13,7 @@
   - Report whether Inno Setup (ISCC) is available for Setup.exe builds
 
 .PARAMETER InstallSystemDeps
-  Use winget to install Python (if missing) and VC++ redistributable.
+  Use winget to install Python (if missing), VC++ redistributable, and Inno Setup 6.
 
 .PARAMETER SkipOpenOcd
   Do not download OpenOCD (build_installer.ps1 will require it later).
@@ -77,6 +77,7 @@ Write-Host "==> Step 1/3: install build dependencies" -ForegroundColor Cyan
 
 if ($InstallSystemDeps) {
     Install-WingetPackage "Microsoft.VCRedist.2015+.x64"
+    Install-WingetPackage "JRSoftware.InnoSetup"
 }
 
 $python = Find-Python
@@ -120,8 +121,11 @@ $iscc = Find-ISCC
 if ($iscc) {
     Write-Host "Inno Setup found: $iscc" -ForegroundColor Green
 } else {
-    Write-Host "Inno Setup (ISCC) not found - Setup.exe builds will be skipped until installed." -ForegroundColor Yellow
-    Write-Host "  https://jrsoftware.org/isinfo.php  or: choco install innosetup"
+    Write-Host "Inno Setup (ISCC) not found - Setup.exe will fail until installed." -ForegroundColor Yellow
+    Write-Host "  https://jrsoftware.org/isdl.php"
+    Write-Host "  winget install JRSoftware.InnoSetup"
+    Write-Host "  choco install innosetup"
+    Write-Host "  or: powershell -File scripts\build_installer.ps1 -InstallInno"
 }
 
 Write-Host ""

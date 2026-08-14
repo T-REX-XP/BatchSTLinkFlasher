@@ -38,6 +38,10 @@ re-enumeration, so **Identify LED** briefly disables/re-enables that probe’s
 PnP node (same Config Manager APIs as clone isolation). Check exactly one
 adapter, then click **Identify LED** and watch the dongle.
 
+Windows often returns **access denied** unless the process is elevated. The app
+will show a **UAC prompt** to run a short elevated helper; you can also start
+the whole app with **Run as administrator**.
+
 ### Ports
 
 Unique TCP ports per OpenOCD process (ephemeral allocation preferred). Example
