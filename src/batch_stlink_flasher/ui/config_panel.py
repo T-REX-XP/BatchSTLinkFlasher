@@ -25,6 +25,7 @@ class ConfigPanel(QWidget):
 
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
+        self._theme_mode = "system"
         self.openocd_edit = QLineEdit()
         self.firmware_edit = QLineEdit()
         self.interface_edit = QLineEdit()
@@ -55,6 +56,7 @@ class ConfigPanel(QWidget):
         self.scripts_edit.setText(settings.scripts_search_path)
         self.bin_base_edit.setText(settings.bin_base_address or f"0x{default_bin_base_address():X}")
         self.timeout_edit.setText(str(settings.job_timeout_sec))
+        self._theme_mode = settings.theme_mode or "system"
 
     def to_settings(self) -> AppSettings:
         try:
@@ -69,6 +71,7 @@ class ConfigPanel(QWidget):
             scripts_search_path=self.scripts_edit.text().strip(),
             bin_base_address=self.bin_base_edit.text().strip() or f"0x{default_bin_base_address():X}",
             job_timeout_sec=timeout,
+            theme_mode=getattr(self, "_theme_mode", "system"),
         )
 
     def _with_browse(self, edit: QLineEdit, handler, *, dir_mode: bool = False) -> QWidget:

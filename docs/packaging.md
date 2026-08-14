@@ -105,20 +105,53 @@ Unzip and run `BatchSTLinkFlasher.exe` (OpenOCD is under `tools\openocd`).
 
 ## GitHub Actions
 
-CI runs on push/PR (`.github/workflows/ci.yml`):
+### CI (`.github/workflows/ci.yml`)
+
+Runs on push/PR:
 
 - install package + dev deps
 - `pytest --cov` with **fail-under 85%**
 - ruff check (non-blocking)
 
+### Release (`.github/workflows/release.yml`)
+
+Triggered by a SemVer tag in the form **`vMAJOR.MINOR.PATCH`** (example: `v0.1.0`):
+
+1. Syncs `packaging/version.json` to `MAJOR.MINOR.PATCH.0`
+2. Runs tests
+3. Fetches OpenOCD, builds the Windows onedir, bundles tools
+4. Builds portable zip + Setup.exe (Inno Setup via Chocolatey)
+5. Publishes a GitHub Release with those artifacts
+
+Create and push a release tag:
+
+```powershell
+# Sets version files, creates annotated tag v0.1.0, optionally pushes
+powershell -ExecutionPolicy Bypass -File scripts\create_release_tag.ps1 -Version 0.1.0 -Commit -Push
+```
+
+Or manually:
+
+```powershell
+powershell -File scripts\bump_version.ps1 -Set 0.1.0.0
+git add packaging/version.json packaging/installer.iss pyproject.toml src/batch_stlink_flasher/_version.py
+git commit -m "chore: release v0.1.0"
+git tag -a v0.1.0 -m "Release v0.1.0"
+git push origin HEAD
+git push origin v0.1.0
+```
+
+You can also run the workflow manually (Actions → Release → Run workflow) and enter `0.1.0`.
+
 ## Branding / icons
 
-Flat chip logo lives under `src/batch_stlink_flasher/assets/`:
+Flat Fluent-style chip logo lives under `src/batch_stlink_flasher/assets/`:
 
+- `app_icon_source.png` — master artwork (Windows 11 style)
 - `logo.png` / `app_icon.png` — UI splash & About
-- `app_icon.ico` — Windows EXE / installer (multi-size)
+- `app_icon.ico` — Windows EXE / installer (multi-size 16–256)
 
-Regenerate after design tweaks:
+Regenerate after replacing the source art:
 
 ```powershell
 .\.venv\Scripts\python scripts\generate_app_icon.py

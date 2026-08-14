@@ -9,10 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- Dark / light appearance with View → Theme (default: follow system)
+- GitHub Release workflow on tags ``vMAJOR.MINOR.PATCH`` (e.g. ``v0.1.0``) + ``scripts/create_release_tag.ps1``
 - Full installer build `scripts/build_full_installer.ps1` (app + bundled OpenOCD + Setup.exe)
 - Runtime dependency fetch `scripts/fetch_runtime_deps.ps1` / `packaging/runtime-deps.json`
 - Auto-detect bundled OpenOCD under `tools/openocd` via `bundled-tools.json`
 - Flat chip logo / multi-size Windows ``app_icon.ico`` (regenerate via ``scripts/generate_app_icon.py``)
+- Modern Windows 11 Fluent-style app icon (gradient plate, layered chip glyph)
 - Themed dark UI with button icons, splash artwork, and application icon
 - About dialog (Help → About) showing version/build and project summary
 - Startup splash screen that scans for ST-Link devices before opening the main window

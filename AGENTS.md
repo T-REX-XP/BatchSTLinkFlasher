@@ -36,6 +36,8 @@ python -m batch_stlink_flasher
 
 Coverage must stay ≥ **85%** (`--cov-fail-under=85`). Bootstrap: `scripts/bootstrap.ps1`.
 
+Release tags use `vMAJOR.MINOR.PATCH` (e.g. `v0.1.0`); see `scripts/create_release_tag.ps1` and `.github/workflows/release.yml`.
+
 ## When stuck
 
 Document the blocker in the PR/commit message and in **Unreleased** notes if it changes operator expectations. Prefer fixing discovery/serial encoding with a real probe before guessing UI workarounds.

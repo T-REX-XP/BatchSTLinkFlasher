@@ -5,8 +5,9 @@ from __future__ import annotations
 from pathlib import Path
 
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QAction, QCloseEvent, QKeySequence
+from PySide6.QtGui import QAction, QActionGroup, QCloseEvent, QKeySequence
 from PySide6.QtWidgets import (
+    QApplication,
     QFileDialog,
     QHBoxLayout,
     QLabel,
@@ -32,7 +33,13 @@ from batch_stlink_flasher.ui.about_dialog import AboutDialog
 from batch_stlink_flasher.ui.config_panel import ConfigPanel
 from batch_stlink_flasher.ui.device_table import DeviceTable
 from batch_stlink_flasher.ui.log_view import LogView
-from batch_stlink_flasher.ui.theme import decorate_button, load_app_icon
+from batch_stlink_flasher.ui.theme import (
+    ThemeMode,
+    apply_app_theme,
+    decorate_button,
+    load_app_icon,
+    normalize_theme_mode,
+)
 from batch_stlink_flasher.ui.workers import DiscoveryWorker, FlashWorker
 from batch_stlink_flasher.util.log_export import SessionLog, export_log_json, export_log_text
 
@@ -131,7 +138,13 @@ class MainWindow(QMainWindow):
         self._build_menu()
         self._connect_signals()
 
-        self.config_panel.apply_settings(load_settings())
+        initial_settings = load_settings()
+        self.config_panel.apply_settings(initial_settings)
+        self._theme_mode = normalize_theme_mode(initial_settings.theme_mode)
+        self._sync_theme_actions()
+        app = QApplication.instance()
+        if app is not None:
+            app.styleHints().colorSchemeChanged.connect(self._on_system_color_scheme_changed)
 
         # Splash may hand off a completed scan; otherwise refresh on startup.
         if auto_refresh is None:
@@ -180,6 +193,24 @@ class MainWindow(QMainWindow):
         quit_action.triggered.connect(self.close)
         file_menu.addAction(quit_action)
 
+        view_menu = self.menuBar().addMenu("&View")
+        theme_menu = view_menu.addMenu("Theme")
+        self._theme_group = QActionGroup(self)
+        self._theme_group.setExclusive(True)
+        self._theme_actions: dict[ThemeMode, QAction] = {}
+        for mode, label in (
+            (ThemeMode.SYSTEM, "System default"),
+            (ThemeMode.LIGHT, "Light"),
+            (ThemeMode.DARK, "Dark"),
+        ):
+            action = QAction(label, self)
+            action.setCheckable(True)
+            action.setData(mode.value)
+            action.triggered.connect(lambda checked=False, m=mode: self.set_theme_mode(m))
+            self._theme_group.addAction(action)
+            theme_menu.addAction(action)
+            self._theme_actions[mode] = action
+
         help_menu = self.menuBar().addMenu("&Help")
         about = QAction("About", self)
         about.triggered.connect(self._about)
@@ -187,6 +218,31 @@ class MainWindow(QMainWindow):
         shortcuts = QAction("Shortcuts", self)
         shortcuts.triggered.connect(self._shortcuts)
         help_menu.addAction(shortcuts)
+
+    def set_theme_mode(self, mode: ThemeMode | str) -> None:
+        """Apply and persist appearance preference."""
+        resolved = normalize_theme_mode(mode)
+        self._theme_mode = resolved
+        self.config_panel._theme_mode = resolved.value  # noqa: SLF001
+        app = QApplication.instance()
+        if isinstance(app, QApplication):
+            apply_app_theme(app, resolved)
+        self._sync_theme_actions()
+        # Persist immediately so restart keeps the choice.
+        settings = self.config_panel.to_settings()
+        settings.theme_mode = resolved.value
+        save_settings(settings)
+
+    def _sync_theme_actions(self) -> None:
+        action = self._theme_actions.get(self._theme_mode)
+        if action is not None:
+            action.setChecked(True)
+
+    def _on_system_color_scheme_changed(self, _scheme) -> None:
+        if self._theme_mode is ThemeMode.SYSTEM:
+            app = QApplication.instance()
+            if isinstance(app, QApplication):
+                apply_app_theme(app, ThemeMode.SYSTEM)
 
     def _connect_signals(self) -> None:
         self.refresh_btn.clicked.connect(self.refresh_devices)
@@ -446,7 +502,8 @@ class MainWindow(QMainWindow):
             "Ctrl+Return - Start flash\n"
             "Esc - Cancel\n"
             "Ctrl+S - Export log\n"
-            "F5 / Refresh - Rescan devices",
+            "F5 / Refresh - Rescan devices\n"
+            "View → Theme - System / Light / Dark",
         )
 
     def closeEvent(self, event: QCloseEvent) -> None:

@@ -45,6 +45,7 @@ def test_settings_roundtrip(qapp: QApplication, tmp_path, monkeypatch) -> None:
     loaded = load_settings()
     assert loaded.target_cfg == "target/stm32f4x.cfg"
     assert loaded.job_timeout_sec == 90.0
+    assert loaded.theme_mode in {"system", "light", "dark"}
 
 
 def test_device_table_selection(qapp: QApplication) -> None:
@@ -106,6 +107,10 @@ def test_main_window_builds(qapp: QApplication, monkeypatch) -> None:
     assert window.flash_btn.text() == "Flash"
     assert window.flash_btn.objectName() == "primaryButton"
     assert not window.flash_btn.icon().isNull()
+    assert window._theme_actions  # noqa: SLF001
+    window.set_theme_mode("light")
+    assert window.config_panel.to_settings().theme_mode == "light"
+    window.set_theme_mode("system")
     # Validation with empty selection / missing files
     err = window._validate(window.config_panel.to_settings())  # noqa: SLF001
     assert err is not None

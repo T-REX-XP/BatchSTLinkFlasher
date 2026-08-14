@@ -41,13 +41,40 @@ def test_assets_exist() -> None:
 
 
 def test_theme_loads(qapp: QApplication) -> None:
-    apply_app_theme(qapp)
+    from batch_stlink_flasher.ui.theme import ThemeMode, active_palette, resolve_palette
+
+    apply_app_theme(qapp, ThemeMode.DARK)
     assert "primaryButton" in qapp.styleSheet()
+    assert active_palette().name == "dark"
+    apply_app_theme(qapp, ThemeMode.LIGHT)
+    assert active_palette().name == "light"
+    assert active_palette().bg.lower() == "#f4f6f8"
+    assert "primaryButton" in qapp.styleSheet()
+    assert resolve_palette(ThemeMode.DARK).name == "dark"
+    assert resolve_palette(ThemeMode.LIGHT).name == "light"
     assert not load_app_icon().isNull()
     from batch_stlink_flasher.ui.theme import load_logo_pixmap, load_splash_pixmap
 
     assert not load_logo_pixmap(max_width=64).isNull()
     assert not load_splash_pixmap(max_width=64).isNull()
+
+
+def test_normalize_theme_mode() -> None:
+    from batch_stlink_flasher.ui.theme import ThemeMode, normalize_theme_mode
+
+    assert normalize_theme_mode("light") is ThemeMode.LIGHT
+    assert normalize_theme_mode("DARK") is ThemeMode.DARK
+    assert normalize_theme_mode("nope") is ThemeMode.SYSTEM
+    assert normalize_theme_mode(None) is ThemeMode.SYSTEM
+
+
+def test_resolve_system_palette(monkeypatch) -> None:
+    from batch_stlink_flasher.ui import theme
+
+    monkeypatch.setattr(theme, "system_prefers_dark", lambda: True)
+    assert theme.resolve_palette(theme.ThemeMode.SYSTEM).name == "dark"
+    monkeypatch.setattr(theme, "system_prefers_dark", lambda: False)
+    assert theme.resolve_palette(theme.ThemeMode.SYSTEM).name == "light"
 
 
 def test_decorate_button(qapp: QApplication) -> None:

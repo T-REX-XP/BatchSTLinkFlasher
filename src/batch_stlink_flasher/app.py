@@ -10,8 +10,10 @@ def run(argv: list[str] | None = None) -> int:
     from PySide6.QtCore import QTimer
     from PySide6.QtWidgets import QApplication
 
+    from batch_stlink_flasher.services.settings import load_settings
     from batch_stlink_flasher.ui.main_window import MainWindow
     from batch_stlink_flasher.ui.splash_screen import SplashScreen
+    from batch_stlink_flasher.ui.theme import ThemeMode, apply_app_theme, normalize_theme_mode
 
     app = QApplication.instance()
     if app is None:
@@ -19,9 +21,17 @@ def run(argv: list[str] | None = None) -> int:
     app.setOrganizationName("BatchSTLinkFlasher")
     app.setApplicationName("BatchSTLinkFlasher")
 
-    from batch_stlink_flasher.ui.theme import apply_app_theme
+    settings = load_settings()
+    theme_mode = normalize_theme_mode(settings.theme_mode)
+    apply_app_theme(app, theme_mode)
 
-    apply_app_theme(app)
+    # Follow OS light/dark changes when preference is System.
+    def _on_system_color_scheme_changed(_scheme) -> None:
+        current = normalize_theme_mode(load_settings().theme_mode)
+        if current is ThemeMode.SYSTEM:
+            apply_app_theme(app, ThemeMode.SYSTEM)
+
+    app.styleHints().colorSchemeChanged.connect(_on_system_color_scheme_changed)
 
     state: dict[str, object] = {"window": None, "splash": None}
 

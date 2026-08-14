@@ -23,6 +23,7 @@ class AppSettings:
     scripts_search_path: str = ""
     bin_base_address: str = DEFAULT_BIN_BASE
     job_timeout_sec: float = 120.0
+    theme_mode: str = "system"  # system | light | dark
 
 
 def load_settings() -> AppSettings:
@@ -35,6 +36,7 @@ def load_settings() -> AppSettings:
         scripts_search_path=str(q.value("scripts_search_path", "")),
         bin_base_address=str(q.value("bin_base_address", DEFAULT_BIN_BASE)),
         job_timeout_sec=float(q.value("job_timeout_sec", 120.0)),
+        theme_mode=str(q.value("theme_mode", "system")),
     )
     return apply_bundled_defaults(settings)
 
@@ -48,6 +50,7 @@ def save_settings(settings: AppSettings) -> None:
     q.setValue("scripts_search_path", settings.scripts_search_path)
     q.setValue("bin_base_address", settings.bin_base_address)
     q.setValue("job_timeout_sec", settings.job_timeout_sec)
+    q.setValue("theme_mode", settings.theme_mode)
     q.sync()
 
 

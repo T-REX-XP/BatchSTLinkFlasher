@@ -13,7 +13,7 @@ from PySide6.QtWidgets import (
 
 from batch_stlink_flasher import __version__, __version_info__
 from batch_stlink_flasher.flashing.models import AdapterInfo
-from batch_stlink_flasher.ui.theme import ACCENT, BG, BORDER, TEXT, TEXT_MUTED, load_logo_pixmap
+from batch_stlink_flasher.ui.theme import load_logo_pixmap, splash_stylesheet
 from batch_stlink_flasher.ui.workers import DiscoveryWorker
 
 
@@ -37,40 +37,7 @@ class SplashScreen(QWidget):
         )
         self.setFixedSize(460, 360)
         self.setObjectName("splashRoot")
-        self.setStyleSheet(
-            f"""
-            QWidget#splashRoot {{
-                background-color: {BG};
-                border: 1px solid {BORDER};
-                border-radius: 12px;
-            }}
-            QLabel#title {{
-                color: {TEXT};
-                font-size: 20px;
-                font-weight: 700;
-            }}
-            QLabel#subtitle {{
-                color: {TEXT_MUTED};
-                font-size: 12px;
-            }}
-            QLabel#status {{
-                color: {TEXT};
-                font-size: 13px;
-            }}
-            QProgressBar {{
-                border: 1px solid {BORDER};
-                border-radius: 4px;
-                background: #12161e;
-                text-align: center;
-                color: {TEXT};
-                min-height: 16px;
-            }}
-            QProgressBar::chunk {{
-                background-color: {ACCENT};
-                border-radius: 3px;
-            }}
-            """
-        )
+        self.setStyleSheet(splash_stylesheet())
 
         art = QLabel()
         art.setObjectName("splashArt")

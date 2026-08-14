@@ -14,8 +14,18 @@ def test_installer_scripts_exist() -> None:
     assert (ROOT / "scripts" / "build_installer.ps1").is_file()
     assert (ROOT / "scripts" / "build_full_installer.ps1").is_file()
     assert (ROOT / "scripts" / "fetch_runtime_deps.ps1").is_file()
+    assert (ROOT / "scripts" / "create_release_tag.ps1").is_file()
     assert (ROOT / "packaging" / "installer.iss").is_file()
     assert (ROOT / "packaging" / "runtime-deps.json").is_file()
+    assert (ROOT / ".github" / "workflows" / "release.yml").is_file()
+
+
+def test_release_workflow_tag_filter() -> None:
+    text = (ROOT / ".github" / "workflows" / "release.yml").read_text(encoding="utf-8")
+    assert 'v[0-9]+.[0-9]+.[0-9]+' in text
+    assert "softprops/action-gh-release" in text
+    assert "fetch_runtime_deps.ps1" in text
+    assert "build_windows.ps1" in text
 
 
 def test_runtime_deps_manifest() -> None:

@@ -78,6 +78,9 @@ powershell -ExecutionPolicy Bypass -File scripts\build_full_installer.ps1 -ZipPo
 
 # Per-user install from an already-built dist (prefer full installer build first)
 powershell -ExecutionPolicy Bypass -File scripts\install.ps1 -DesktopShortcut -Force
+
+# Publish a GitHub Release from tag v0.1.0
+powershell -ExecutionPolicy Bypass -File scripts\create_release_tag.ps1 -Version 0.1.0 -Commit -Push
 ```
 
 See [docs/packaging.md](docs/packaging.md).

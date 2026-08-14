@@ -1,0 +1,165 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v[0-9]+.[0-9]+.[0-9]+"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Release version without v prefix (e.g. 0.1.0)"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+    env:
+      QT_QPA_PLATFORM: offscreen
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Resolve release version
+        id: ver
+        shell: pwsh
+        run: |
+          if ("${{ github.event_name }}" -eq "workflow_dispatch") {
+            $raw = "${{ inputs.version }}".Trim().TrimStart("v", "V")
+          } else {
+            $raw = "${{ github.ref_name }}".TrimStart("v", "V")
+          }
+          if ($raw -notmatch '^\d+\.\d+\.\d+$') {
+            throw "Version must look like 0.1.0 (got '$raw'). Tags must match vMAJOR.MINOR.PATCH."
+          }
+          $tag = "v$raw"
+          "version=$raw" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+          "tag=$tag" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+          "fourpart=$raw.0" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+          Write-Host "Release version=$raw tag=$tag fourpart=$raw.0"
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install package + packaging extras
+        run: |
+          python -m pip install -U pip
+          python -m pip install -e ".[dev,packaging]"
+
+      - name: Sync version from tag
+        shell: pwsh
+        run: |
+          powershell -NoProfile -ExecutionPolicy Bypass -File scripts\bump_version.ps1 -Set "${{ steps.ver.outputs.fourpart }}"
+
+      - name: Tests with coverage
+        run: |
+          python -m pytest -q --cov=batch_stlink_flasher --cov-report=term-missing --cov-fail-under=85
+
+      - name: Fetch OpenOCD runtime
+        shell: pwsh
+        run: |
+          powershell -NoProfile -ExecutionPolicy Bypass -File scripts\fetch_runtime_deps.ps1
+
+      - name: Build Windows onedir (no bump)
+        shell: pwsh
+        run: |
+          powershell -NoProfile -ExecutionPolicy Bypass -File scripts\build_windows.ps1 -NoBump
+
+      - name: Bundle OpenOCD + portable zip
+        shell: pwsh
+        run: |
+          $Root = $PWD
+          $DistApp = Join-Path $Root "dist\BatchSTLinkFlasher"
+          $VendorOpenOcd = Join-Path $Root "vendor\runtime\openocd"
+          $toolsOpenOcd = Join-Path $DistApp "tools\openocd"
+          if (-not (Test-Path (Join-Path $DistApp "BatchSTLinkFlasher.exe"))) {
+            throw "Missing dist payload"
+          }
+          if (Test-Path $toolsOpenOcd) { Remove-Item $toolsOpenOcd -Recurse -Force }
+          New-Item -ItemType Directory -Force -Path (Split-Path $toolsOpenOcd) | Out-Null
+          Copy-Item $VendorOpenOcd $toolsOpenOcd -Recurse -Force
+
+          $manifest = Get-Content packaging\runtime-deps.json -Raw | ConvertFrom-Json
+          $ver = "${{ steps.ver.outputs.fourpart }}"
+          @{
+            AppId          = "BatchSTLinkFlasher"
+            Version        = $ver
+            BuiltAt        = (Get-Date).ToString("o")
+            OpenOcdExe     = "tools/openocd/bin/openocd.exe"
+            OpenOcdScripts = "tools/openocd/share/openocd/scripts"
+            OpenOcdVersion = [string]$manifest.openocd.version
+            OpenOcdName    = [string]$manifest.openocd.name
+          } | ConvertTo-Json | Set-Content (Join-Path $DistApp "bundled-tools.json") -Encoding UTF8
+
+          @{
+            AppId   = "BatchSTLinkFlasher"
+            Version = $ver
+            BuiltAt = (Get-Date).ToString("o")
+          } | ConvertTo-Json | Set-Content (Join-Path $DistApp "build-info.json") -Encoding UTF8
+
+          Copy-Item scripts\uninstall.ps1 (Join-Path $DistApp "uninstall.ps1") -Force
+
+          $zip = Join-Path $Root ("dist\BatchSTLinkFlasher-{0}-portable.zip" -f $ver)
+          if (Test-Path $zip) { Remove-Item $zip -Force }
+          Compress-Archive -Path (Join-Path $DistApp "*") -DestinationPath $zip -Force
+          Write-Host "Portable zip: $zip"
+
+      - name: Install Inno Setup
+        shell: pwsh
+        run: |
+          choco install innosetup -y --no-progress
+          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $iscc)) { throw "ISCC.exe not found after Inno Setup install" }
+          Write-Host "ISCC: $iscc"
+
+      - name: Compile Setup.exe
+        shell: pwsh
+        run: |
+          & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" packaging\installer.iss
+          Get-ChildItem dist -Filter "*Setup*.exe" | ForEach-Object { Write-Host $_.FullName }
+
+      - name: Collect release notes from CHANGELOG
+        id: notes
+        shell: pwsh
+        run: |
+          $version = "${{ steps.ver.outputs.version }}"
+          $changelog = Get-Content CHANGELOG.md -Raw
+          $pattern = "(?ms)^## \[$([regex]::Escape($version))\].*?(?=^## \[|\z)"
+          $match = [regex]::Match($changelog, $pattern)
+          if ($match.Success) {
+            $body = $match.Value.Trim()
+          } else {
+            $body = @"
+          ## Batch ST-Link Flasher $version
+
+          Windows release built from tag ${{ steps.ver.outputs.tag }}.
+
+          See CHANGELOG.md for details.
+          "@
+          }
+          $path = "release-notes.md"
+          Set-Content -Path $path -Value $body -Encoding UTF8
+          "path=$path" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.ver.outputs.tag }}
+          name: Batch ST-Link Flasher ${{ steps.ver.outputs.version }}
+          body_path: ${{ steps.notes.outputs.path }}
+          draft: false
+          prerelease: false
+          fail_on_unmatched_files: false
+          files: |
+            dist/BatchSTLinkFlasher-${{ steps.ver.outputs.fourpart }}-portable.zip
+            dist/BatchSTLinkFlasher-${{ steps.ver.outputs.fourpart }}-Setup.exe
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
