@@ -17,6 +17,11 @@ _INSTANCE_RE = re.compile(
     r"^USB\\VID_([0-9A-Fa-f]{4})&PID_([0-9A-Fa-f]{4})\\(.+)$",
     re.IGNORECASE,
 )
+# Windows LocationInformation: Port_#0001.Hub_#0002
+_LOCATION_RE = re.compile(
+    r"Port_#0*(\d+)\.Hub_#0*(\d+)",
+    re.IGNORECASE,
+)
 # Windows-generated instance ids when USB serial is missing/duplicated (still real probes).
 _WINDOWS_INSTANCE_SERIAL_RE = re.compile(r"^\d+&[0-9A-Fa-f]+&\d+&\d+$", re.IGNORECASE)
 
@@ -37,6 +42,8 @@ class WindowsUsbDevice:
     vid: int
     pid: int
     usb_serial: str
+    usb_port: int | None = None
+    usb_hub: int | None = None
 
 
 def list_stlink_pnp_devices() -> list[WindowsUsbDevice]:
@@ -72,6 +79,9 @@ def list_stlink_pnp_devices() -> list[WindowsUsbDevice]:
         if key in seen_instances:
             continue
         seen_instances.add(key)
+        port, hub = parse_usb_location(row.get("LocationInformation") or "")
+        if port is None:
+            port = _parse_optional_int(row.get("Address"))
         devices.append(
             WindowsUsbDevice(
                 name=str(row.get("Name") or "ST-Link"),
@@ -80,9 +90,28 @@ def list_stlink_pnp_devices() -> list[WindowsUsbDevice]:
                 vid=vid,
                 pid=pid,
                 usb_serial=serial,
+                usb_port=port,
+                usb_hub=hub,
             )
         )
     return devices
+
+
+def parse_usb_location(location_information: str) -> tuple[int | None, int | None]:
+    """Parse ``Port_#0001.Hub_#0002`` into ``(port, hub)``."""
+    match = _LOCATION_RE.search(location_information or "")
+    if not match:
+        return None, None
+    return int(match.group(1)), int(match.group(2))
+
+
+def _parse_optional_int(value: object) -> int | None:
+    if value is None or value == "":
+        return None
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
 
 
 def parse_usb_instance_id(instance_id: str) -> tuple[int, int, str] | None:
@@ -139,6 +168,8 @@ def _enumerate_stlink_registry() -> list[dict[str, str]]:
                                 or "ST-Link",
                                 "Manufacturer": props.get("Mfg") or "",
                                 "DeviceID": device_id,
+                                "LocationInformation": props.get("LocationInformation") or "",
+                                "Address": props.get("Address") or "",
                             }
                         )
             except OSError as exc:
@@ -203,10 +234,13 @@ def _read_device_props(instance_path: str) -> dict[str, str]:
     props: dict[str, str] = {}
     try:
         with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, instance_path) as key:
-            for name in ("FriendlyName", "DeviceDesc", "Mfg"):
+            for name in ("FriendlyName", "DeviceDesc", "Mfg", "LocationInformation", "Address"):
                 try:
                     value, _ = winreg.QueryValueEx(key, name)
                 except OSError:
+                    continue
+                if name == "Address":
+                    props[name] = str(value)
                     continue
                 text = _clean_reg_string(str(value))
                 if text:

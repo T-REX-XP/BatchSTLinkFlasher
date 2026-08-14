@@ -16,20 +16,30 @@ from batch_stlink_flasher.flashing.models import AdapterInfo, JobState
 COL_CHECK = 0
 COL_PRODUCT = 1
 COL_SERIAL = 2
-COL_PID = 3
-COL_HLA = 4
-COL_STATUS = 5
-COL_PROGRESS = 6
-COL_NOTE = 7
+COL_USB_PORT = 3
+COL_PID = 4
+COL_HLA = 5
+COL_STATUS = 6
+COL_PROGRESS = 7
+COL_NOTE = 8
+
+
+def format_usb_port(adapter: AdapterInfo) -> str:
+    """Human-readable USB port / hub for the device table."""
+    if adapter.usb_port is None:
+        return "-"
+    if adapter.usb_hub is not None:
+        return f"{adapter.usb_port} (hub {adapter.usb_hub})"
+    return str(adapter.usb_port)
 
 
 class DeviceTable(QTableWidget):
     """Checkbox table of discovered ST-Links."""
 
     def __init__(self, parent=None) -> None:
-        super().__init__(0, 8, parent)
+        super().__init__(0, 9, parent)
         self.setHorizontalHeaderLabels(
-            ["", "Product", "Serial", "PID", "HLA", "Status", "Progress", "Note"]
+            ["", "Product", "Serial", "USB port", "PID", "HLA", "Status", "Progress", "Note"]
         )
         self.verticalHeader().setVisible(False)
         self.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
@@ -38,9 +48,10 @@ class DeviceTable(QTableWidget):
         self.horizontalHeader().setSectionResizeMode(COL_PRODUCT, QHeaderView.ResizeMode.Stretch)
         self.horizontalHeader().setSectionResizeMode(COL_NOTE, QHeaderView.ResizeMode.Stretch)
         self.setColumnWidth(COL_CHECK, 36)
-        self.setColumnWidth(COL_SERIAL, 140)
+        self.setColumnWidth(COL_SERIAL, 120)
+        self.setColumnWidth(COL_USB_PORT, 100)
         self.setColumnWidth(COL_PID, 70)
-        self.setColumnWidth(COL_HLA, 160)
+        self.setColumnWidth(COL_HLA, 150)
         self.setColumnWidth(COL_STATUS, 100)
         self.setColumnWidth(COL_PROGRESS, 110)
         self._adapters: list[AdapterInfo] = []
@@ -69,6 +80,7 @@ class DeviceTable(QTableWidget):
 
             self.setItem(row, COL_PRODUCT, QTableWidgetItem(adapter.product or "ST-Link"))
             self.setItem(row, COL_SERIAL, QTableWidgetItem(adapter.serial))
+            self.setItem(row, COL_USB_PORT, QTableWidgetItem(format_usb_port(adapter)))
             self.setItem(row, COL_PID, QTableWidgetItem(f"0x{adapter.pid:04X}"))
             hla = adapter.hla_serial or "(none)"
             self.setItem(row, COL_HLA, QTableWidgetItem(hla))

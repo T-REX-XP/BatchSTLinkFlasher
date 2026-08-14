@@ -176,6 +176,8 @@ def list_adapters_windows_pnp() -> list[AdapterInfo]:
                 product=dev.name or "ST-Link",
                 manufacturer=dev.manufacturer or "STMicroelectronics",
                 usb_path=dev.instance_id,
+                usb_port=dev.usb_port,
+                usb_hub=dev.usb_hub,
                 multi_adapter_ok=multi_ok,
                 skip_reason=reason,
             )
@@ -226,7 +228,10 @@ def list_adapters_pyusb() -> list[AdapterInfo]:
 
         product = _usb_string(dev, getattr(dev, "iProduct", 0), usb.util) or "ST-Link"
         manufacturer = _usb_string(dev, getattr(dev, "iManufacturer", 0), usb.util) or ""
-        usb_path = f"{getattr(dev, 'bus', '?')}:{getattr(dev, 'address', '?')}"
+        bus = getattr(dev, "bus", None)
+        address = getattr(dev, "address", None)
+        usb_path = f"{bus if bus is not None else '?'}:{address if address is not None else '?'}"
+        usb_port = int(address) if isinstance(address, int) else None
 
         adapters.append(
             AdapterInfo(
@@ -237,6 +242,8 @@ def list_adapters_pyusb() -> list[AdapterInfo]:
                 product=product,
                 manufacturer=manufacturer,
                 usb_path=usb_path,
+                usb_port=usb_port,
+                usb_hub=int(bus) if isinstance(bus, int) else None,
                 multi_adapter_ok=multi_ok,
                 skip_reason=reason,
             )

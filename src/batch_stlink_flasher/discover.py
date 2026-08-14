@@ -70,6 +70,9 @@ def main(argv: list[str] | None = None) -> int:
         print(f"      hla_serial={adapter.hla_serial or '(none)'}")
         print(f"      vid=0x{adapter.vid:04x} pid=0x{adapter.pid:04x}")
         print(f"      product={adapter.product!r} manufacturer={adapter.manufacturer!r}")
+        if adapter.usb_port is not None:
+            hub = f" hub={adapter.usb_hub}" if adapter.usb_hub is not None else ""
+            print(f"      usb_port={adapter.usb_port}{hub}")
         if adapter.usb_path:
             print(f"      usb_path={adapter.usb_path}")
         print(f"      multi_adapter_ok={adapter.multi_adapter_ok}")

@@ -6,6 +6,7 @@ from batch_stlink_flasher.services.windows_pnp import (
     is_usable_usb_serial,
     parse_usb_instance_id,
 )
+from batch_stlink_flasher.flashing.models import AdapterInfo
 from batch_stlink_flasher.services.device_service import list_adapters_windows_pnp
 from batch_stlink_flasher.services.windows_pnp import WindowsUsbDevice
 
@@ -25,7 +26,32 @@ def test_parse_clone_placeholder_serial() -> None:
 def test_unusable_serials() -> None:
     assert is_usable_usb_serial("%") is False
     assert is_usable_usb_serial("") is False
+    assert is_usable_usb_serial("5&28bd6581&0&6") is False
     assert is_usable_usb_serial("66FF55") is True
+
+
+def test_parse_usb_location() -> None:
+    from batch_stlink_flasher.services.windows_pnp import parse_usb_location
+
+    assert parse_usb_location("Port_#0001.Hub_#0002") == (1, 2)
+    assert parse_usb_location("Port_#0006.Hub_#0002") == (6, 2)
+    assert parse_usb_location("") == (None, None)
+
+
+def test_format_usb_port() -> None:
+    from batch_stlink_flasher.ui.device_table import format_usb_port
+
+    assert format_usb_port(AdapterInfo(serial="A", hla_serial="", vid=0, pid=0)) == "-"
+    assert (
+        format_usb_port(
+            AdapterInfo(serial="A", hla_serial="", vid=0, pid=0, usb_port=1, usb_hub=2)
+        )
+        == "1 (hub 2)"
+    )
+    assert (
+        format_usb_port(AdapterInfo(serial="A", hla_serial="", vid=0, pid=0, usb_port=6))
+        == "6"
+    )
 
 
 def test_list_adapters_windows_pnp_maps_placeholder(monkeypatch) -> None:
