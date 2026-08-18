@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from PySide6.QtCore import QByteArray, QSettings, Qt
-from PySide6.QtGui import QAction, QActionGroup, QCloseEvent, QKeySequence
+from PySide6.QtGui import QAction, QActionGroup, QCloseEvent, QIcon, QKeySequence
 from PySide6.QtWidgets import (
     QApplication,
     QDialog,
@@ -16,7 +16,6 @@ from PySide6.QtWidgets import (
     QSizePolicy,
     QSplitter,
     QStatusBar,
-    QStyle,
     QToolBar,
     QVBoxLayout,
     QWidget,
@@ -44,7 +43,7 @@ from batch_stlink_flasher.ui.theme import (
     load_app_icon,
     normalize_theme_mode,
     style_dialog_buttons,
-    style_standard_icon_widget,
+    themed_icon,
 )
 from batch_stlink_flasher.ui.workers import DiscoveryWorker, FlashWorker, IdentifyWorker
 from batch_stlink_flasher.util.log_export import SessionLog, export_log_json, export_log_text
@@ -88,49 +87,49 @@ class MainWindow(QMainWindow):
         self.act_refresh = QAction("Refresh", self)
         self.act_refresh.setToolTip("Refresh devices (F5)")
         self.act_refresh.setShortcut(QKeySequence.StandardKey.Refresh)
-        self.act_refresh.setIcon(style_standard_icon_widget(self, QStyle.StandardPixmap.SP_BrowserReload))
+        self.act_refresh.setIcon(themed_icon("icon_refresh.svg"))
         self.act_refresh.triggered.connect(self.refresh_devices)
 
         self.act_select_all = QAction("All", self)
         self.act_select_all.setToolTip("Select all adapters")
-        self.act_select_all.setIcon(style_standard_icon_widget(self, QStyle.StandardPixmap.SP_DialogYesButton))
+        self.act_select_all.setIcon(themed_icon("icon_check_all.svg"))
         self.act_select_all.triggered.connect(lambda: self.device_table.set_all_checked(True))
 
         self.act_select_none = QAction("None", self)
         self.act_select_none.setToolTip("Select none")
-        self.act_select_none.setIcon(style_standard_icon_widget(self, QStyle.StandardPixmap.SP_DialogNoButton))
+        self.act_select_none.setIcon(themed_icon("icon_uncheck_all.svg"))
         self.act_select_none.triggered.connect(lambda: self.device_table.set_all_checked(False))
 
         self.act_identify = QAction("Identify", self)
         self.act_identify.setToolTip("Blink COM LED on the checked adapter")
-        self.act_identify.setIcon(style_standard_icon_widget(self, QStyle.StandardPixmap.SP_MessageBoxInformation))
+        self.act_identify.setIcon(themed_icon("icon_identify.svg"))
         self.act_identify.triggered.connect(self.identify_selected)
 
         self.act_settings = QAction("Settings", self)
         self.act_settings.setToolTip("OpenOCD path, interface, timeout, theme…")
         self.act_settings.setShortcut(QKeySequence("Ctrl+,"))
-        self.act_settings.setIcon(style_standard_icon_widget(self, QStyle.StandardPixmap.SP_FileDialogDetailedView))
+        self.act_settings.setIcon(themed_icon("icon_settings.svg"))
         self.act_settings.triggered.connect(self.open_settings)
 
         self.act_export = QAction("Export", self)
         self.act_export.setToolTip("Export session log")
         self.act_export.setShortcut(QKeySequence("Ctrl+S"))
-        self.act_export.setIcon(style_standard_icon_widget(self, QStyle.StandardPixmap.SP_DialogSaveButton))
+        self.act_export.setIcon(themed_icon("icon_export.svg"))
         self.act_export.triggered.connect(self.export_log)
 
         self.act_clear_log = QAction("Clear log", self)
-        self.act_clear_log.setIcon(style_standard_icon_widget(self, QStyle.StandardPixmap.SP_DialogResetButton))
+        self.act_clear_log.setIcon(themed_icon("icon_clear.svg"))
         self.act_clear_log.triggered.connect(self._clear_log)
 
         self.act_cancel = QAction("Cancel", self)
         self.act_cancel.setEnabled(False)
         self.act_cancel.setShortcut(QKeySequence("Esc"))
-        self.act_cancel.setIcon(style_standard_icon_widget(self, QStyle.StandardPixmap.SP_DialogCancelButton))
+        self.act_cancel.setIcon(themed_icon("icon_cancel.svg"))
         self.act_cancel.triggered.connect(self.cancel_flash)
 
         self.act_flash = QAction("Flash", self)
         self.act_flash.setShortcut(QKeySequence("Ctrl+Return"))
-        self.act_flash.setIcon(style_standard_icon_widget(self, QStyle.StandardPixmap.SP_DialogApplyButton))
+        self.act_flash.setIcon(themed_icon("icon_flash.svg"))
         self.act_flash.triggered.connect(self.start_flash)
 
         # --- Toolbar ---
@@ -371,8 +370,30 @@ class MainWindow(QMainWindow):
         app = QApplication.instance()
         if isinstance(app, QApplication):
             apply_app_theme(app, resolved)
+        self._retheme_icons()
         self._sync_theme_actions()
         save_settings(self._current_settings())
+
+    def _retheme_icons(self) -> None:
+        """Re-assign themed SVG icons after a palette switch.
+
+        Setting the icon to ``None`` first forces Qt to drop its internal SVG
+        renderer cache so the new (recolorised) temp file is actually read.
+        """
+        icons = {
+            self.act_refresh: "icon_refresh.svg",
+            self.act_select_all: "icon_check_all.svg",
+            self.act_select_none: "icon_uncheck_all.svg",
+            self.act_identify: "icon_identify.svg",
+            self.act_settings: "icon_settings.svg",
+            self.act_export: "icon_export.svg",
+            self.act_clear_log: "icon_clear.svg",
+            self.act_cancel: "icon_cancel.svg",
+            self.act_flash: "icon_flash.svg",
+        }
+        for action, name in icons.items():
+            action.setIcon(QIcon())          # drop old renderer
+            action.setIcon(themed_icon(name)) # load recolorised SVG
 
     def _sync_theme_actions(self) -> None:
         action = self._theme_actions.get(self._theme_mode)
@@ -384,6 +405,7 @@ class MainWindow(QMainWindow):
             app = QApplication.instance()
             if isinstance(app, QApplication):
                 apply_app_theme(app, ThemeMode.SYSTEM)
+            self._retheme_icons()
 
     def _ui_settings(self) -> QSettings:
         return QSettings(ORG, APP)

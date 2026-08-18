@@ -538,6 +538,7 @@ def apply_app_theme(app: QApplication, mode: ThemeMode | str | None = ThemeMode.
     icon = load_app_icon()
     if not icon.isNull():
         app.setWindowIcon(icon)
+    clear_icon_cache()
     return palette
 
 
@@ -614,6 +615,79 @@ def style_standard_icon(widget: QWidget, standard: QStyle.StandardPixmap) -> QIc
 def style_standard_icon_widget(widget: QWidget, standard: QStyle.StandardPixmap) -> QIcon:
     """Alias used when building QAction icons (same behaviour as style_standard_icon)."""
     return style_standard_icon(widget, standard)
+
+
+# ---------------------------------------------------------------------------
+# Theme-aware icon system using Papirus icon theme
+# ---------------------------------------------------------------------------
+# Icons live in assets/papirus/ (24x24 actions from Papirus).
+# Each SVG uses CSS classes with a primary text color (#444444).
+# themed_icon() replaces that color with the active palette's text color,
+# renders the SVG in-memory via QSvgRenderer → QPixmap, and caches the QIcon.
+# No temp files, no Qt SVG file-cache issues.
+_ICON_CACHE: dict[str, QIcon] = {}
+
+# Papirus SVGs use these color tokens; we only replace the text color.
+_PAPIRUS_PRIMARY = "#444444"
+
+# Map action names → Papirus SVG filenames (relative to assets/papirus/).
+_PAPIRUS_ICONS: dict[str, str] = {
+    "icon_refresh.svg": "view-refresh.svg",
+    "icon_check_all.svg": "edit-select-all.svg",
+    "icon_uncheck_all.svg": "edit-select-none.svg",
+    "icon_identify.svg": "dialog-information.svg",
+    "icon_settings.svg": "configure.svg",
+    "icon_export.svg": "edit-download.svg",
+    "icon_clear.svg": "edit-clear.svg",
+    "icon_cancel.svg": "window-close.svg",
+    "icon_flash.svg": "system-run.svg",
+}
+
+
+def _papirus_path(filename: str) -> Path:
+    return Path(__file__).resolve().parent.parent / "assets" / "papirus" / filename
+
+
+def themed_icon(name: str) -> QIcon:
+    """Return a theme-aware QIcon from the Papirus icon set."""
+    p = active_palette()
+    cache_key = f"{name}|{p.text}"
+    cached = _ICON_CACHE.get(cache_key)
+    if cached is not None:
+        return cached
+
+    papirus_name = _PAPIRUS_ICONS.get(name)
+    if papirus_name is None:
+        return QIcon()
+
+    src = _papirus_path(papirus_name)
+    if not src.is_file():
+        return QIcon()
+
+    raw = src.read_text(encoding="utf-8")
+    # Replace the primary text color with the active palette color.
+    recolored = raw.replace(_PAPIRUS_PRIMARY, p.text)
+
+    # Render to QPixmap via QSvgRenderer — no temp files, no caching bugs.
+    from PySide6.QtSvg import QSvgRenderer
+    from PySide6.QtCore import QByteArray
+
+    renderer = QSvgRenderer(QByteArray(recolored.encode("utf-8")))
+    size = 24
+    pix = QPixmap(size, size)
+    pix.fill(Qt.GlobalColor.transparent)
+    painter = QPainter(pix)
+    renderer.render(painter)
+    painter.end()
+
+    icon = QIcon(pix)
+    _ICON_CACHE[cache_key] = icon
+    return icon
+
+
+def clear_icon_cache() -> None:
+    """Drop cached themed icons (call when the palette changes)."""
+    _ICON_CACHE.clear()
 
 
 def create_browse_button(
