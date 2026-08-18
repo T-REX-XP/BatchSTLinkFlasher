@@ -10,15 +10,14 @@ from PySide6.QtWidgets import (
     QApplication,
     QDialog,
     QFileDialog,
-    QFrame,
     QLabel,
     QMainWindow,
     QMessageBox,
-    QPushButton,
     QSizePolicy,
     QSplitter,
     QStatusBar,
     QStyle,
+    QToolBar,
     QVBoxLayout,
     QWidget,
 )
@@ -36,16 +35,16 @@ from batch_stlink_flasher.services.settings import (
 from batch_stlink_flasher.ui.about_dialog import AboutDialog
 from batch_stlink_flasher.ui.config_panel import ConfigPanel
 from batch_stlink_flasher.ui.device_table import DeviceTable
-from batch_stlink_flasher.ui.flow_layout import FlowLayout
 from batch_stlink_flasher.ui.log_view import LogView
 from batch_stlink_flasher.ui.file_filters import LOG_EXPORT_FILTER
 from batch_stlink_flasher.ui.settings_dialog import SettingsDialog
 from batch_stlink_flasher.ui.theme import (
     ThemeMode,
     apply_app_theme,
-    decorate_button,
     load_app_icon,
     normalize_theme_mode,
+    style_dialog_buttons,
+    style_standard_icon_widget,
 )
 from batch_stlink_flasher.ui.workers import DiscoveryWorker, FlashWorker, IdentifyWorker
 from batch_stlink_flasher.util.log_export import SessionLog, export_log_json, export_log_text
@@ -85,67 +84,76 @@ class MainWindow(QMainWindow):
         self._settings = load_settings()
         self._theme_mode = normalize_theme_mode(self._settings.theme_mode)
 
-        self.refresh_btn = QPushButton("Refresh")
-        self.refresh_btn.setToolTip("Refresh devices (F5)")
-        self.select_all_btn = QPushButton("All")
-        self.select_all_btn.setToolTip("Select all adapters")
-        self.select_none_btn = QPushButton("None")
-        self.select_none_btn.setToolTip("Select none")
-        self.identify_btn = QPushButton("Identify")
-        self.identify_btn.setToolTip("Blink COM LED on the checked adapter")
-        self.settings_btn = QPushButton("Settings")
-        self.settings_btn.setToolTip("OpenOCD path, interface, timeout, theme…")
-        self.flash_btn = QPushButton("Flash")
-        self.cancel_btn = QPushButton("Cancel")
-        self.clear_log_btn = QPushButton("Clear log")
-        self.export_log_btn = QPushButton("Export")
-        self.export_log_btn.setToolTip("Export session log")
-        self.cancel_btn.setEnabled(False)
+        # --- Actions ---
+        self.act_refresh = QAction("Refresh", self)
+        self.act_refresh.setToolTip("Refresh devices (F5)")
+        self.act_refresh.setShortcut(QKeySequence.StandardKey.Refresh)
+        self.act_refresh.setIcon(style_standard_icon_widget(self, QStyle.StandardPixmap.SP_BrowserReload))
+        self.act_refresh.triggered.connect(self.refresh_devices)
 
-        decorate_button(self.refresh_btn, standard=QStyle.StandardPixmap.SP_BrowserReload)
-        decorate_button(self.select_all_btn, standard=QStyle.StandardPixmap.SP_DialogYesButton)
-        decorate_button(self.select_none_btn, standard=QStyle.StandardPixmap.SP_DialogNoButton)
-        decorate_button(self.identify_btn, standard=QStyle.StandardPixmap.SP_MessageBoxInformation)
-        decorate_button(self.settings_btn, standard=QStyle.StandardPixmap.SP_FileDialogDetailedView)
-        decorate_button(
-            self.flash_btn,
-            standard=QStyle.StandardPixmap.SP_DialogApplyButton,
-            role="primary",
-        )
-        decorate_button(
-            self.cancel_btn,
-            standard=QStyle.StandardPixmap.SP_DialogCancelButton,
-            role="danger",
-        )
-        decorate_button(self.clear_log_btn, standard=QStyle.StandardPixmap.SP_DialogResetButton)
-        decorate_button(self.export_log_btn, standard=QStyle.StandardPixmap.SP_DialogSaveButton)
+        self.act_select_all = QAction("All", self)
+        self.act_select_all.setToolTip("Select all adapters")
+        self.act_select_all.setIcon(style_standard_icon_widget(self, QStyle.StandardPixmap.SP_DialogYesButton))
+        self.act_select_all.triggered.connect(lambda: self.device_table.set_all_checked(True))
 
-        toolbar = QWidget()
+        self.act_select_none = QAction("None", self)
+        self.act_select_none.setToolTip("Select none")
+        self.act_select_none.setIcon(style_standard_icon_widget(self, QStyle.StandardPixmap.SP_DialogNoButton))
+        self.act_select_none.triggered.connect(lambda: self.device_table.set_all_checked(False))
+
+        self.act_identify = QAction("Identify", self)
+        self.act_identify.setToolTip("Blink COM LED on the checked adapter")
+        self.act_identify.setIcon(style_standard_icon_widget(self, QStyle.StandardPixmap.SP_MessageBoxInformation))
+        self.act_identify.triggered.connect(self.identify_selected)
+
+        self.act_settings = QAction("Settings", self)
+        self.act_settings.setToolTip("OpenOCD path, interface, timeout, theme…")
+        self.act_settings.setShortcut(QKeySequence("Ctrl+,"))
+        self.act_settings.setIcon(style_standard_icon_widget(self, QStyle.StandardPixmap.SP_FileDialogDetailedView))
+        self.act_settings.triggered.connect(self.open_settings)
+
+        self.act_export = QAction("Export", self)
+        self.act_export.setToolTip("Export session log")
+        self.act_export.setShortcut(QKeySequence("Ctrl+S"))
+        self.act_export.setIcon(style_standard_icon_widget(self, QStyle.StandardPixmap.SP_DialogSaveButton))
+        self.act_export.triggered.connect(self.export_log)
+
+        self.act_clear_log = QAction("Clear log", self)
+        self.act_clear_log.setIcon(style_standard_icon_widget(self, QStyle.StandardPixmap.SP_DialogResetButton))
+        self.act_clear_log.triggered.connect(self._clear_log)
+
+        self.act_cancel = QAction("Cancel", self)
+        self.act_cancel.setEnabled(False)
+        self.act_cancel.setShortcut(QKeySequence("Esc"))
+        self.act_cancel.setIcon(style_standard_icon_widget(self, QStyle.StandardPixmap.SP_DialogCancelButton))
+        self.act_cancel.triggered.connect(self.cancel_flash)
+
+        self.act_flash = QAction("Flash", self)
+        self.act_flash.setShortcut(QKeySequence("Ctrl+Return"))
+        self.act_flash.setIcon(style_standard_icon_widget(self, QStyle.StandardPixmap.SP_DialogApplyButton))
+        self.act_flash.triggered.connect(self.start_flash)
+
+        # --- Toolbar ---
+        toolbar = QToolBar("Main", self)
         toolbar.setObjectName("mainToolbar")
-        toolbar.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Maximum)
-        top_btns = FlowLayout(toolbar, margin=0, spacing=6)
-        top_btns.addWidget(self.refresh_btn)
-        top_btns.addWidget(self.select_all_btn)
-        top_btns.addWidget(self.select_none_btn)
-        top_btns.addWidget(self.identify_btn)
-        # spacer-ish stretch via empty expanding label inside flow is awkward;
-        # put primary actions after a visual separator frame.
-        sep = QFrame()
-        sep.setFrameShape(QFrame.Shape.VLine)
-        sep.setFrameShadow(QFrame.Shadow.Sunken)
-        sep.setFixedWidth(8)
-        top_btns.addWidget(sep)
-        top_btns.addWidget(self.settings_btn)
-        top_btns.addWidget(self.export_log_btn)
-        top_btns.addWidget(self.clear_log_btn)
-        top_btns.addWidget(self.cancel_btn)
-        top_btns.addWidget(self.flash_btn)
+        toolbar.setMovable(False)
+        toolbar.setIconSize(toolbar.iconSize())
+        toolbar.addAction(self.act_refresh)
+        toolbar.addAction(self.act_select_all)
+        toolbar.addAction(self.act_select_none)
+        toolbar.addAction(self.act_identify)
+        toolbar.addSeparator()
+        toolbar.addAction(self.act_settings)
+        toolbar.addAction(self.act_export)
+        toolbar.addAction(self.act_clear_log)
+        toolbar.addSeparator()
+        toolbar.addAction(self.act_cancel)
+        toolbar.addAction(self.act_flash)
 
         devices_pane = QWidget()
         devices_layout = QVBoxLayout(devices_pane)
-        devices_layout.setContentsMargins(8, 8, 8, 4)
-        devices_layout.setSpacing(6)
-        devices_layout.addWidget(toolbar)
+        devices_layout.setContentsMargins(0, 0, 0, 0)
+        devices_layout.setSpacing(0)
         devices_layout.addWidget(self.device_table, stretch=1)
 
         # OpenOCD path summary lives only in the status bar — never in the
@@ -201,6 +209,7 @@ class MainWindow(QMainWindow):
         root.setContentsMargins(0, 0, 0, 0)
         root.addWidget(self.main_splitter)
         self.setCentralWidget(container)
+        self.addToolBar(toolbar)
 
         status = QStatusBar()
         self.setStatusBar(status)
@@ -417,15 +426,9 @@ class MainWindow(QMainWindow):
         self._status("Layout reset")
 
     def _connect_signals(self) -> None:
-        self.refresh_btn.clicked.connect(self.refresh_devices)
-        self.select_all_btn.clicked.connect(lambda: self.device_table.set_all_checked(True))
-        self.select_none_btn.clicked.connect(lambda: self.device_table.set_all_checked(False))
-        self.identify_btn.clicked.connect(self.identify_selected)
-        self.settings_btn.clicked.connect(self.open_settings)
-        self.flash_btn.clicked.connect(self.start_flash)
-        self.cancel_btn.clicked.connect(self.cancel_flash)
-        self.clear_log_btn.clicked.connect(self._clear_log)
-        self.export_log_btn.clicked.connect(self.export_log)
+        # Actions are already connected via triggered.connect() above.
+        # Keep this method for any remaining non-action signal wiring.
+        pass
 
     def refresh_devices(self) -> None:
         if self._flash is not None and self._flash.isRunning():
@@ -437,12 +440,12 @@ class MainWindow(QMainWindow):
         if self._discovery is not None and self._discovery.isRunning():
             return
 
-        self.refresh_btn.setEnabled(False)
+        self.act_refresh.setEnabled(False)
         self._status("Scanning for ST-Links...")
         worker = DiscoveryWorker()
         worker.finished_ok.connect(self._on_discovery_ok)
         worker.failed.connect(self._on_discovery_failed)
-        worker.finished.connect(lambda: self.refresh_btn.setEnabled(True))
+        worker.finished.connect(lambda: self.act_refresh.setEnabled(True))
         self._discovery = worker
         worker.start()
 
@@ -490,9 +493,9 @@ class MainWindow(QMainWindow):
         self.log_view.append_line(f"--- identify LED: {adapter.serial} ({port}) ---")
         self._session.append(f"--- identify LED: {adapter.serial} ({port}) ---")
         self._status(f"Blinking LED on {port}… watch the programmer")
-        self.identify_btn.setEnabled(False)
-        self.refresh_btn.setEnabled(False)
-        self.flash_btn.setEnabled(False)
+        self.act_identify.setEnabled(False)
+        self.act_refresh.setEnabled(False)
+        self.act_flash.setEnabled(False)
 
         worker = IdentifyWorker(adapter)
         worker.finished_ok.connect(self._on_identify_ok)
@@ -518,10 +521,10 @@ class MainWindow(QMainWindow):
         )
 
     def _on_identify_finished(self) -> None:
-        self.identify_btn.setEnabled(True)
-        self.refresh_btn.setEnabled(True)
+        self.act_identify.setEnabled(True)
+        self.act_refresh.setEnabled(True)
         if self._flash is None or not self._flash.isRunning():
-            self.flash_btn.setEnabled(True)
+            self.act_flash.setEnabled(True)
 
     def start_flash(self) -> None:
         if self._flash is not None and self._flash.isRunning():
@@ -571,9 +574,9 @@ class MainWindow(QMainWindow):
                 mode_bits.append(f"{n_clone} sequential (clone isolate)")
             mode = " + ".join(mode_bits) if mode_bits else "flash"
 
-        self.flash_btn.setEnabled(False)
-        self.cancel_btn.setEnabled(True)
-        self.refresh_btn.setEnabled(False)
+        self.act_flash.setEnabled(False)
+        self.act_cancel.setEnabled(True)
+        self.act_refresh.setEnabled(False)
 
         worker = FlashWorker(
             adapters,
@@ -677,9 +680,9 @@ class MainWindow(QMainWindow):
         self._status(f"Log exported to {path}")
 
     def _set_idle_controls(self) -> None:
-        self.flash_btn.setEnabled(True)
-        self.cancel_btn.setEnabled(False)
-        self.refresh_btn.setEnabled(True)
+        self.act_flash.setEnabled(True)
+        self.act_cancel.setEnabled(False)
+        self.act_refresh.setEnabled(True)
 
     def _validate(self, settings) -> str | None:
         openocd = resolve_openocd_path(settings.openocd_path)
@@ -742,6 +745,12 @@ class MainWindow(QMainWindow):
             bin_base_address=bin_base,
             scripts_search_path=scripts,
             job_timeout_sec=float(settings.job_timeout_sec),
+            cmd_gdb_port=settings.openocd_cmd_gdb_port,
+            cmd_telnet_port=settings.openocd_cmd_telnet_port,
+            cmd_tcl_port=settings.openocd_cmd_tcl_port,
+            cmd_hla_serial=settings.openocd_cmd_hla_serial,
+            cmd_program=settings.openocd_cmd_program,
+            cmd_program_bin=settings.openocd_cmd_program_bin,
         )
 
     def _update_summary_idle(self) -> None:

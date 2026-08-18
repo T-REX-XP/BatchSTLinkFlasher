@@ -226,7 +226,7 @@ def test_start_and_cancel_flash(window: MainWindow, tmp_path: Path, monkeypatch:
         lambda _s: None,
     )
     window.start_flash()
-    assert window.cancel_btn.isEnabled()
+    assert window.act_cancel.isEnabled()
     window.cancel_flash()
 
 
@@ -331,11 +331,11 @@ def test_identify_starts_worker(window: MainWindow, monkeypatch: pytest.MonkeyPa
     window.device_table.set_all_checked(True)
     window.identify_selected()
     assert window._identify is not None  # noqa: SLF001
-    assert not window.identify_btn.isEnabled()
+    assert not window.act_identify.isEnabled()
     window._on_identify_ok("A")  # noqa: SLF001
     window._on_identify_failed("nope")  # noqa: SLF001
     window._on_identify_finished()  # noqa: SLF001
-    assert window.identify_btn.isEnabled()
+    assert window.act_identify.isEnabled()
 
 
 def test_close_while_flashing_asks_confirmation(

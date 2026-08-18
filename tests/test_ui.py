@@ -225,9 +225,8 @@ def test_main_window_builds(qapp: QApplication, monkeypatch) -> None:
     )
     window = MainWindow(auto_refresh=False)
     assert window.windowTitle().startswith("Batch ST-Link Flasher")
-    assert window.flash_btn.text() == "Flash"
-    assert window.flash_btn.objectName() == "primaryButton"
-    assert not window.flash_btn.icon().isNull()
+    assert window.act_flash.text() == "Flash"
+    assert not window.act_flash.icon().isNull()
     assert window._theme_actions  # noqa: SLF001
     assert window.main_splitter.count() == 2
     assert "OpenOCD:" in window.tools_summary.text()

@@ -45,6 +45,13 @@ class AppSettings:
     job_timeout_sec: float = 120.0
     theme_mode: str = "system"  # system | light | dark
     flash_mode: str = FlashMode.AUTO.value  # auto | sequential
+    # OpenOCD command templates — stored in config, not hardcoded.
+    openocd_cmd_gdb_port: str = "gdb port {port}"
+    openocd_cmd_telnet_port: str = "telnet port {port}"
+    openocd_cmd_tcl_port: str = "tcl port {port}"
+    openocd_cmd_hla_serial: str = "hla_serial {serial}"
+    openocd_cmd_program: str = "program {file} verify reset exit"
+    openocd_cmd_program_bin: str = "program {file} {address} verify reset exit"
 
 
 def load_settings() -> AppSettings:
@@ -59,6 +66,12 @@ def load_settings() -> AppSettings:
         job_timeout_sec=float(q.value("job_timeout_sec", 120.0)),
         theme_mode=str(q.value("theme_mode", "system")),
         flash_mode=normalize_flash_mode(str(q.value("flash_mode", FlashMode.AUTO.value))).value,
+        openocd_cmd_gdb_port=str(q.value("openocd_cmd_gdb_port", "gdb port {port}")),
+        openocd_cmd_telnet_port=str(q.value("openocd_cmd_telnet_port", "telnet port {port}")),
+        openocd_cmd_tcl_port=str(q.value("openocd_cmd_tcl_port", "tcl port {port}")),
+        openocd_cmd_hla_serial=str(q.value("openocd_cmd_hla_serial", "hla_serial {serial}")),
+        openocd_cmd_program=str(q.value("openocd_cmd_program", "program {file} verify reset exit")),
+        openocd_cmd_program_bin=str(q.value("openocd_cmd_program_bin", "program {file} {address} verify reset exit")),
     )
     return apply_bundled_defaults(settings)
 
@@ -74,6 +87,12 @@ def save_settings(settings: AppSettings) -> None:
     q.setValue("job_timeout_sec", settings.job_timeout_sec)
     q.setValue("theme_mode", settings.theme_mode)
     q.setValue("flash_mode", normalize_flash_mode(settings.flash_mode).value)
+    q.setValue("openocd_cmd_gdb_port", settings.openocd_cmd_gdb_port)
+    q.setValue("openocd_cmd_telnet_port", settings.openocd_cmd_telnet_port)
+    q.setValue("openocd_cmd_tcl_port", settings.openocd_cmd_tcl_port)
+    q.setValue("openocd_cmd_hla_serial", settings.openocd_cmd_hla_serial)
+    q.setValue("openocd_cmd_program", settings.openocd_cmd_program)
+    q.setValue("openocd_cmd_program_bin", settings.openocd_cmd_program_bin)
     q.sync()
 
 

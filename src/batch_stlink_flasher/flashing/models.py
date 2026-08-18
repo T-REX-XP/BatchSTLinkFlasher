@@ -61,6 +61,13 @@ class FlashConfig:
     bin_base_address: int | None = None
     scripts_search_path: Path | None = None
     job_timeout_sec: float = 120.0
+    # OpenOCD command templates (configurable, not hardcoded).
+    cmd_gdb_port: str = "gdb port {port}"
+    cmd_telnet_port: str = "telnet port {port}"
+    cmd_tcl_port: str = "tcl port {port}"
+    cmd_hla_serial: str = "hla_serial {serial}"
+    cmd_program: str = "program {file} verify reset exit"
+    cmd_program_bin: str = "program {file} {address} verify reset exit"
 
     def firmware_kind(self) -> str:
         """Return ``elf``, ``hex``, or ``bin`` based on suffix."""

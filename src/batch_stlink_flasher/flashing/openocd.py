@@ -12,10 +12,17 @@ _DEFAULT_BIN_BASE = 0x08000000
 _ERROR_HINT = re.compile(r"(error|fail|couldn't|unable|timeout)", re.IGNORECASE)
 
 
-def build_program_command(firmware_path: Path, *, bin_base_address: int | None) -> str:
+def build_program_command(
+    firmware_path: Path,
+    *,
+    bin_base_address: int | None,
+    cmd_template: str = "program {file} verify reset exit",
+    cmd_template_bin: str = "program {file} {address} verify reset exit",
+) -> str:
     """
     Build the OpenOCD Tcl ``program … verify reset exit`` statement.
 
+    Uses configurable command templates from settings.
     ``.elf`` / ``.hex``: address is taken from the image.
     ``.bin``: ``bin_base_address`` is required (caller should validate via ``FlashConfig``).
     """
@@ -24,9 +31,9 @@ def build_program_command(firmware_path: Path, *, bin_base_address: int | None) 
     if suffix == ".bin":
         if bin_base_address is None:
             raise ValueError("bin_base_address is required for .bin firmware")
-        return f"program {path} {bin_base_address:#x} verify reset exit"
+        return cmd_template_bin.replace("{file}", path).replace("{address}", f"{bin_base_address:#x}")
     if suffix in {".elf", ".hex"}:
-        return f"program {path} verify reset exit"
+        return cmd_template.replace("{file}", path)
     raise ValueError(f"Unsupported firmware type {suffix!r}; expected .elf, .hex, or .bin")
 
 
@@ -59,21 +66,24 @@ def build_openocd_command(
 
     serial = (hla_serial or "").strip()
     if serial:
-        argv.extend(["-c", f"hla_serial {serial}"])
+        argv.extend(["-c", config.cmd_hla_serial.replace("{serial}", serial)])
 
+    program_cmd = build_program_command(
+        config.firmware_path,
+        bin_base_address=config.bin_base_address,
+        cmd_template=config.cmd_program,
+        cmd_template_bin=config.cmd_program_bin,
+    )
     argv.extend(
         [
             "-c",
-            f"gdb port {ports.gdb}",
+            config.cmd_gdb_port.replace("{port}", str(ports.gdb)),
             "-c",
-            f"telnet port {ports.telnet}",
+            config.cmd_telnet_port.replace("{port}", str(ports.telnet)),
             "-c",
-            f"tcl port {ports.tcl}",
+            config.cmd_tcl_port.replace("{port}", str(ports.tcl)),
             "-c",
-            build_program_command(
-                config.firmware_path,
-                bin_base_address=config.bin_base_address,
-            ),
+            program_cmd,
         ]
     )
     return argv

@@ -611,6 +611,11 @@ def style_standard_icon(widget: QWidget, standard: QStyle.StandardPixmap) -> QIc
     return style.standardIcon(standard)
 
 
+def style_standard_icon_widget(widget: QWidget, standard: QStyle.StandardPixmap) -> QIcon:
+    """Alias used when building QAction icons (same behaviour as style_standard_icon)."""
+    return style_standard_icon(widget, standard)
+
+
 def create_browse_button(
     parent: QWidget | None = None,
     *,
