@@ -300,6 +300,10 @@ def app_stylesheet(palette: ThemePalette | None = None) -> str:
     QDialogButtonBox {{
         background-color: transparent;
     }}
+    QDialogButtonBox QPushButton {{
+        min-width: 80px;
+        padding: 5px 16px;
+    }}
     QSplitter::handle {{
         background-color: {p.border};
         margin: 1px 4px;
@@ -648,3 +652,17 @@ def decorate_button(
         button.setObjectName("primaryButton")
     elif role == "danger":
         button.setObjectName("dangerButton")
+
+
+def style_dialog_buttons(box) -> None:
+    """Style a QDialogButtonBox: accept → primary, others → secondary."""
+    from PySide6.QtWidgets import QDialogButtonBox as Dbb
+
+    # Mark the accept button as primary so the stylesheet picks it up.
+    accept = box.button(Dbb.StandardButton.Ok)
+    if accept is not None:
+        accept.setObjectName("primaryButton")
+    # Save buttons also get primary treatment.
+    save = box.button(Dbb.StandardButton.Save)
+    if save is not None:
+        save.setObjectName("primaryButton")

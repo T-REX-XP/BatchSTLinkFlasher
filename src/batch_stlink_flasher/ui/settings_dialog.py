@@ -24,7 +24,7 @@ from batch_stlink_flasher.services.settings import (
 )
 from batch_stlink_flasher.ui.file_filters import openocd_executable_filter
 from batch_stlink_flasher.ui.path_row import path_browse_row
-from batch_stlink_flasher.ui.theme import ThemeMode, normalize_theme_mode
+from batch_stlink_flasher.ui.theme import ThemeMode, normalize_theme_mode, style_dialog_buttons
 
 
 class SettingsDialog(QDialog):
@@ -89,6 +89,7 @@ class SettingsDialog(QDialog):
         buttons = QDialogButtonBox(
             QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
         )
+        style_dialog_buttons(buttons)
         buttons.accepted.connect(self.accept)
         buttons.rejected.connect(self.reject)
 

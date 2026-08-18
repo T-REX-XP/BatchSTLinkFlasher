@@ -11,7 +11,7 @@ from PySide6.QtWidgets import (
 )
 
 from batch_stlink_flasher import __version__, __version_info__
-from batch_stlink_flasher.ui.theme import load_app_icon, load_logo_pixmap
+from batch_stlink_flasher.ui.theme import load_app_icon, load_logo_pixmap, style_dialog_buttons
 
 
 class AboutDialog(QDialog):
@@ -58,6 +58,7 @@ class AboutDialog(QDialog):
         body.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
 
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok)
+        style_dialog_buttons(buttons)
         buttons.accepted.connect(self.accept)
 
         layout = QVBoxLayout(self)
