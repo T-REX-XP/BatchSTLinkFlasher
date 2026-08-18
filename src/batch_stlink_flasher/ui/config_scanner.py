@@ -66,6 +66,12 @@ def _scan_subdirectory(scripts_dir: Path, subdir: str) -> list[str]:
     return cfg_files
 
 
+def looks_like_scripts_dir(path: str | Path) -> bool:
+    """Return True if *path* is a directory that contains interface/ or target/."""
+    p = Path(path)
+    return p.is_dir() and ((p / "interface").is_dir() or (p / "target").is_dir())
+
+
 # Well-known defaults so the dropdowns are never completely empty even
 # when no scripts directory is available.
 WELL_KNOWN_INTERFACES: list[str] = [

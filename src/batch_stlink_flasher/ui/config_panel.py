@@ -19,6 +19,7 @@ from batch_stlink_flasher.ui.config_scanner import (
     WELL_KNOWN_TARGETS,
     get_default_target_config,
     infer_scripts_dir_from_openocd,
+    looks_like_scripts_dir,
     scan_scripts_directory,
 )
 from batch_stlink_flasher.ui.file_filters import FIRMWARE_FILTER
@@ -113,8 +114,9 @@ class ConfigPanel(QWidget):
 
     def _refresh_target_options(self, current_value: str, scripts_path: str = "", openocd_path: str = "") -> None:
         """Refresh the target combo box options from scripts directory."""
-        # If no explicit scripts path, try to infer from the OpenOCD exe.
-        if not scripts_path:
+        # If scripts_path is empty, doesn't exist, or doesn't contain an
+        # interface/ or target/ subdirectory, try to infer from the OpenOCD exe.
+        if not scripts_path or not looks_like_scripts_dir(scripts_path):
             inferred = infer_scripts_dir_from_openocd(openocd_path)
             if inferred is not None:
                 scripts_path = str(inferred)

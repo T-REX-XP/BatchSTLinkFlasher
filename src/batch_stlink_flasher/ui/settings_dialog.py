@@ -28,6 +28,7 @@ from batch_stlink_flasher.ui.config_scanner import (
     WELL_KNOWN_INTERFACES,
     get_default_interface_config,
     infer_scripts_dir_from_openocd,
+    looks_like_scripts_dir,
     scan_scripts_directory,
 )
 from batch_stlink_flasher.ui.file_filters import OPENOCD_CFG_FILTER, openocd_executable_filter
@@ -204,8 +205,9 @@ class SettingsDialog(QDialog):
         """Refresh the interface combo box options from scripts directory."""
         scripts_path = self.scripts_edit.text().strip()
 
-        # If no explicit scripts path, try to infer from the OpenOCD exe.
-        if not scripts_path:
+        # If scripts_path is empty, doesn't exist, or doesn't contain an
+        # interface/ subdirectory, try to infer from the OpenOCD exe.
+        if not scripts_path or not looks_like_scripts_dir(scripts_path):
             inferred = infer_scripts_dir_from_openocd(self.openocd_edit.text().strip())
             if inferred is not None:
                 scripts_path = str(inferred)
