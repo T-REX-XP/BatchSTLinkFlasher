@@ -640,7 +640,7 @@ _PAPIRUS_ICONS: dict[str, str] = {
     "icon_export.svg": "edit-download.svg",
     "icon_clear.svg": "edit-clear.svg",
     "icon_cancel.svg": "process-stop.svg",
-    "icon_flash.svg": "system-run.svg",
+    "icon_flash.svg": "lightning-bolt.svg",
 }
 
 
@@ -648,8 +648,48 @@ def _papirus_path(filename: str) -> Path:
     return Path(__file__).resolve().parent.parent / "assets" / "papirus" / filename
 
 
+# Papirus CSS color tokens → direct inline colors for Qt SVG renderer.
+# Qt cannot resolve ``fill:currentColor`` via CSS class inheritance, so we
+# replace the CSS definitions and ``currentColor`` references at load time.
+# Each toolbar action gets a distinct color for visual identification.
+_PAPIRUS_ACTION_COLORS: dict[str, str] = {
+    "icon_refresh.svg":    "#4285f4",  # blue   — Refresh
+    "icon_check_all.svg":  "#4caf50",  # green  — Select All
+    "icon_uncheck_all.svg":"#9e9e9e",  # gray   — Select None
+    "icon_identify.svg":   "#ff9800",  # orange — Identify
+    "icon_clear.svg":      "#f44336",  # red    — Clear log
+    "icon_cancel.svg":     "#f44336",  # red    — Cancel flash
+    "icon_flash.svg":      "#4285f4",  # blue   — Flash
+}
+_DEFAULT_ICON_COLOR = "#5c616e"
+
+
+def _inline_papirus_colors(svg_text: str, action_name: str = "") -> str:
+    """Replace Papirus CSS color classes with direct inline fill values.
+
+    Qt's SVG renderer does not resolve ``fill:currentColor`` through CSS class
+    inheritance, so we bake the colors into each element directly.
+    Each action gets a distinct color for visual identification.
+    """
+    import re
+
+    color = _PAPIRUS_ACTION_COLORS.get(action_name, _DEFAULT_ICON_COLOR)
+
+    # Step 1: remove the <style> block entirely.
+    svg_text = re.sub(r"<style[^>]*>.*?</style>", "", svg_text, flags=re.DOTALL)
+
+    # Step 2: replace all class="ColorScheme-*" with the action's color.
+    svg_text = re.sub(r'class="ColorScheme-\w+"', f'fill="{color}"', svg_text)
+
+    # Step 3: resolve any remaining currentColor references.
+    svg_text = svg_text.replace("fill:currentColor", f"fill:{color}")
+    svg_text = svg_text.replace("stroke:currentColor", f"stroke:{color}")
+
+    return svg_text
+
+
 def themed_icon(name: str) -> QIcon:
-    """Return a QIcon from the Papirus icon set (colored, no recoloring needed)."""
+    """Return a colorful QIcon from the Papirus icon set (colored, no recoloring needed)."""
     cache_key = name
     cached = _ICON_CACHE.get(cache_key)
     if cached is not None:
@@ -664,12 +704,14 @@ def themed_icon(name: str) -> QIcon:
         return QIcon()
 
     raw = src.read_text(encoding="utf-8")
+    # Inline CSS colors so Qt's SVG renderer can draw them.
+    processed = _inline_papirus_colors(raw)
 
     # Render to QPixmap via QSvgRenderer — no temp files, no caching bugs.
     from PySide6.QtSvg import QSvgRenderer
     from PySide6.QtCore import QByteArray
 
-    renderer = QSvgRenderer(QByteArray(raw.encode("utf-8")))
+    renderer = QSvgRenderer(QByteArray(processed.encode("utf-8")))
     size = 24
     pix = QPixmap(size, size)
     pix.fill(Qt.GlobalColor.transparent)
