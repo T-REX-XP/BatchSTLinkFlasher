@@ -5,6 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from PySide6.QtWidgets import (
+    QComboBox,
     QFileDialog,
     QFormLayout,
     QLineEdit,
@@ -14,7 +15,13 @@ from PySide6.QtWidgets import (
 
 from batch_stlink_flasher.flashing.openocd import default_bin_base_address
 from batch_stlink_flasher.services.settings import AppSettings
-from batch_stlink_flasher.ui.file_filters import FIRMWARE_FILTER, OPENOCD_CFG_FILTER
+from batch_stlink_flasher.ui.config_scanner import (
+    WELL_KNOWN_TARGETS,
+    get_default_target_config,
+    infer_scripts_dir_from_openocd,
+    scan_scripts_directory,
+)
+from batch_stlink_flasher.ui.file_filters import FIRMWARE_FILTER
 from batch_stlink_flasher.ui.path_row import path_browse_row
 
 
@@ -25,7 +32,17 @@ class ConfigPanel(QWidget):
         super().__init__(parent)
         self.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
         self.firmware_edit = QLineEdit()
-        self.target_edit = QLineEdit()
+        self.target_combo = QComboBox()
+        self.target_combo.setEditable(True)
+        self.target_combo.setInsertPolicy(QComboBox.InsertPolicy.NoInsert)
+        self.target_combo.setMinimumHeight(26)
+        self.target_combo.setSizePolicy(
+            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed,
+        )
+        self.target_combo.setSizeAdjustPolicy(
+            QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon
+        )
+        self.target_combo.setMinimumContentsLength(20)
         self.bin_base_edit = QLineEdit()
         self.bin_base_edit.setMinimumHeight(26)
         self.bin_base_edit.setClearButtonEnabled(True)
@@ -36,21 +53,28 @@ class ConfigPanel(QWidget):
         form.setVerticalSpacing(4)
         form.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.ExpandingFieldsGrow)
         form.addRow("Firmware:", path_browse_row(self.firmware_edit, self._browse_firmware))
-        form.addRow("Target cfg:", path_browse_row(self.target_edit, self._browse_target))
+        form.addRow("Target cfg:", self.target_combo)
         form.addRow("BIN base:", self.bin_base_edit)
 
     def apply_settings(self, settings: AppSettings) -> None:
         self.firmware_edit.setText(settings.last_firmware_path)
-        self.target_edit.setText(settings.target_cfg)
         self.bin_base_edit.setText(settings.bin_base_address or f"0x{default_bin_base_address():X}")
+        self._refresh_target_options(
+            settings.target_cfg,
+            settings.scripts_search_path,
+            settings.openocd_path,
+        )
 
     def merge_into(self, base: AppSettings) -> AppSettings:
         """Return ``base`` with job fields taken from this panel."""
+        target_cfg = self.target_combo.currentText().strip()
+        if not target_cfg:
+            target_cfg = get_default_target_config()
         return AppSettings(
             openocd_path=base.openocd_path,
             last_firmware_path=self.firmware_edit.text().strip(),
             interface_cfg=base.interface_cfg,
-            target_cfg=self.target_edit.text().strip(),
+            target_cfg=target_cfg,
             scripts_search_path=base.scripts_search_path,
             bin_base_address=self.bin_base_edit.text().strip()
             or f"0x{default_bin_base_address():X}",
@@ -87,12 +111,33 @@ class ConfigPanel(QWidget):
         if path:
             self.firmware_edit.setText(path)
 
-    def _browse_target(self) -> None:
-        path, _ = QFileDialog.getOpenFileName(
-            self,
-            "Select OpenOCD target/board config",
-            self._dialog_start_path(self.target_edit.text()),
-            OPENOCD_CFG_FILTER,
-        )
-        if path:
-            self.target_edit.setText(path)
+    def _refresh_target_options(self, current_value: str, scripts_path: str = "", openocd_path: str = "") -> None:
+        """Refresh the target combo box options from scripts directory."""
+        # If no explicit scripts path, try to infer from the OpenOCD exe.
+        if not scripts_path:
+            inferred = infer_scripts_dir_from_openocd(openocd_path)
+            if inferred is not None:
+                scripts_path = str(inferred)
+
+        _, target_configs = scan_scripts_directory(scripts_path)
+
+        # Merge well-known defaults so the dropdown is never empty.
+        merged: list[str] = []
+        seen: set[str] = set()
+        for cfg in list(WELL_KNOWN_TARGETS) + target_configs:
+            if cfg not in seen:
+                merged.append(cfg)
+                seen.add(cfg)
+
+        self.target_combo.clear()
+        for cfg in merged:
+            self.target_combo.addItem(cfg, cfg)
+
+        if current_value:
+            idx = self.target_combo.findData(current_value)
+            if idx >= 0:
+                self.target_combo.setCurrentIndex(idx)
+            else:
+                self.target_combo.setEditText(current_value)
+        elif merged:
+            self.target_combo.setCurrentIndex(0)

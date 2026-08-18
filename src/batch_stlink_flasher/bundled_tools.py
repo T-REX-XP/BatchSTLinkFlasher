@@ -67,7 +67,11 @@ def discover_bundled_tools() -> BundledTools | None:
             exe = root / "bin" / "openocd"
         if not exe.is_file():
             continue
+        # Try standard layout first, then the nested layout used by some bundles
+        # (e.g. vendor/runtime/openocd/openocd/scripts).
         scripts = root / "share" / "openocd" / "scripts"
+        if not scripts.is_dir():
+            scripts = root / "openocd" / "scripts"
         return BundledTools(
             openocd_exe=exe,
             scripts_dir=scripts if scripts.is_dir() else None,

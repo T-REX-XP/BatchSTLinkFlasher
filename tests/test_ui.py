@@ -133,7 +133,7 @@ def test_settings_dialog_roundtrip(qapp: QApplication, tmp_path) -> None:
     )
     dialog = SettingsDialog(base)
     dialog.openocd_edit.setText(str(tmp_path / "openocd.exe"))
-    dialog.interface_edit.setText("interface/stlink-v2.cfg")
+    dialog.interface_combo.setEditText("interface/stlink-v2.cfg")
     dialog.scripts_edit.setText(str(tmp_path))
     dialog.timeout_edit.setText("not-a-number")
     dialog.theme_combo.setCurrentIndex(dialog.theme_combo.findData("light"))
@@ -149,12 +149,10 @@ def test_settings_dialog_roundtrip(qapp: QApplication, tmp_path) -> None:
 
 
 def test_settings_dialog_browse(qapp: QApplication, monkeypatch, tmp_path) -> None:
-    from batch_stlink_flasher.ui.file_filters import OPENOCD_CFG_FILTER, openocd_executable_filter
+    from batch_stlink_flasher.ui.file_filters import openocd_executable_filter
 
     openocd = tmp_path / "openocd.exe"
     openocd.write_text("", encoding="utf-8")
-    iface = tmp_path / "stlink.cfg"
-    iface.write_text("", encoding="utf-8")
     scripts = tmp_path / "scripts"
     scripts.mkdir()
     dialog = SettingsDialog(AppSettings())
@@ -165,8 +163,7 @@ def test_settings_dialog_browse(qapp: QApplication, monkeypatch, tmp_path) -> No
         if "executable" in caption.lower():
             assert filt == openocd_executable_filter()
             return (str(openocd), "")
-        assert filt == OPENOCD_CFG_FILTER
-        return (str(iface), "")
+        return (str(openocd), "")
 
     monkeypatch.setattr(
         "batch_stlink_flasher.ui.settings_dialog.QFileDialog.getOpenFileName",
@@ -174,8 +171,6 @@ def test_settings_dialog_browse(qapp: QApplication, monkeypatch, tmp_path) -> No
     )
     dialog._browse_openocd()  # noqa: SLF001
     assert dialog.openocd_edit.text() == str(openocd)
-    dialog._browse_interface()  # noqa: SLF001
-    assert dialog.interface_edit.text() == str(iface)
     monkeypatch.setattr(
         "batch_stlink_flasher.ui.settings_dialog.QFileDialog.getExistingDirectory",
         lambda *a, **k: str(scripts),
@@ -186,13 +181,11 @@ def test_settings_dialog_browse(qapp: QApplication, monkeypatch, tmp_path) -> No
 
 
 def test_config_panel_browse_filters(qapp: QApplication, monkeypatch, tmp_path) -> None:
-    from batch_stlink_flasher.ui.file_filters import FIRMWARE_FILTER, OPENOCD_CFG_FILTER
+    from batch_stlink_flasher.ui.file_filters import FIRMWARE_FILTER
 
     panel = ConfigPanel()
     fw = tmp_path / "a.elf"
     fw.write_text("", encoding="utf-8")
-    cfg = tmp_path / "stm32f1x.cfg"
-    cfg.write_text("", encoding="utf-8")
 
     def fake_open(*a, **k):
         filt = a[3] if len(a) > 3 else k.get("filter", "")
@@ -201,9 +194,7 @@ def test_config_panel_browse_filters(qapp: QApplication, monkeypatch, tmp_path) 
             assert filt == FIRMWARE_FILTER
             assert "*.elf" in filt and "*.hex" in filt and "*.bin" in filt
             return (str(fw), "")
-        assert filt == OPENOCD_CFG_FILTER
-        assert "*.cfg" in filt
-        return (str(cfg), "")
+        return (str(fw), "")
 
     monkeypatch.setattr(
         "batch_stlink_flasher.ui.config_panel.QFileDialog.getOpenFileName",
@@ -211,8 +202,6 @@ def test_config_panel_browse_filters(qapp: QApplication, monkeypatch, tmp_path) 
     )
     panel._browse_firmware()  # noqa: SLF001
     assert panel.firmware_edit.text() == str(fw)
-    panel._browse_target()  # noqa: SLF001
-    assert panel.target_edit.text() == str(cfg)
 
 
 def test_file_filters_module(monkeypatch) -> None:
@@ -315,6 +304,133 @@ def test_config_panel_browse_firmware(qapp: QApplication, monkeypatch, tmp_path)
     )
     panel._browse_firmware()  # noqa: SLF001
     assert panel.firmware_edit.text() == str(fw)
+
+
+def test_config_scanner(tmp_path) -> None:
+    from batch_stlink_flasher.ui.config_scanner import (
+        get_default_interface_config,
+        get_default_target_config,
+        scan_scripts_directory,
+    )
+
+    # Test with None/empty path
+    interfaces, targets = scan_scripts_directory(None)
+    assert interfaces == []
+    assert targets == []
+
+    interfaces, targets = scan_scripts_directory("")
+    assert interfaces == []
+    assert targets == []
+
+    # Test with non-existent path
+    interfaces, targets = scan_scripts_directory(str(tmp_path / "nonexistent"))
+    assert interfaces == []
+    assert targets == []
+
+    # Test with empty scripts directory
+    interfaces, targets = scan_scripts_directory(str(tmp_path))
+    assert interfaces == []
+    assert targets == []
+
+    # Test with interface configs
+    iface_dir = tmp_path / "interface"
+    iface_dir.mkdir()
+    (iface_dir / "stlink.cfg").write_text("", encoding="utf-8")
+    (iface_dir / "stlink-v2.cfg").write_text("", encoding="utf-8")
+    (iface_dir / "subdir").mkdir()
+    (iface_dir / "subdir" / "nested.cfg").write_text("", encoding="utf-8")
+
+    interfaces, targets = scan_scripts_directory(str(tmp_path))
+    assert len(interfaces) == 3
+    assert "interface/stlink.cfg" in interfaces
+    assert "interface/stlink-v2.cfg" in interfaces
+    assert "interface/subdir/nested.cfg" in interfaces
+    assert targets == []
+
+    # Test with target configs
+    target_dir = tmp_path / "target"
+    target_dir.mkdir()
+    (target_dir / "stm32f1x.cfg").write_text("", encoding="utf-8")
+    (target_dir / "stm32f4x.cfg").write_text("", encoding="utf-8")
+
+    interfaces, targets = scan_scripts_directory(str(tmp_path))
+    assert len(interfaces) == 3
+    assert len(targets) == 2
+    assert "target/stm32f1x.cfg" in targets
+    assert "target/stm32f4x.cfg" in targets
+
+    # Test default values
+    assert get_default_interface_config() == "interface/stlink.cfg"
+    assert get_default_target_config() == "target/stm32f1x.cfg"
+
+
+def test_config_panel_dropdown_refresh(qapp: QApplication, tmp_path) -> None:
+    """Test that config panel target combo refreshes with options."""
+    from batch_stlink_flasher.ui.config_scanner import get_default_target_config
+
+    panel = ConfigPanel()
+
+    # Create scripts directory with target configs
+    scripts_dir = tmp_path / "scripts"
+    target_dir = scripts_dir / "target"
+    target_dir.mkdir(parents=True)
+    (target_dir / "stm32f1x.cfg").write_text("", encoding="utf-8")
+    (target_dir / "stm32f4x.cfg").write_text("", encoding="utf-8")
+
+    # Apply settings with scripts path
+    settings = AppSettings(
+        target_cfg="target/stm32f1x.cfg",
+        scripts_search_path=str(scripts_dir),
+    )
+    panel.apply_settings(settings)
+
+    # Verify combo has scanned targets (2) plus well-known defaults
+    assert panel.target_combo.count() >= 2
+    assert panel.target_combo.currentText() == "target/stm32f1x.cfg"
+
+    # Test with custom value not in list
+    settings2 = AppSettings(
+        target_cfg="target/custom.cfg",
+        scripts_search_path=str(scripts_dir),
+    )
+    panel.apply_settings(settings2)
+    assert panel.target_combo.currentText() == "target/custom.cfg"
+
+    # Test with empty scripts path — well-known defaults are still shown
+    settings3 = AppSettings(
+        target_cfg="target/stm32f1x.cfg",
+        scripts_search_path="",
+    )
+    panel.apply_settings(settings3)
+    assert panel.target_combo.count() >= 1  # well-known defaults always present
+    assert panel.target_combo.currentText() == "target/stm32f1x.cfg"
+
+
+def test_settings_dialog_interface_dropdown(qapp: QApplication, tmp_path) -> None:
+    """Test that settings dialog interface combo refreshes with options."""
+    # Create scripts directory with interface configs
+    scripts_dir = tmp_path / "scripts"
+    iface_dir = scripts_dir / "interface"
+    iface_dir.mkdir(parents=True)
+    (iface_dir / "stlink.cfg").write_text("", encoding="utf-8")
+    (iface_dir / "stlink-v2.cfg").write_text("", encoding="utf-8")
+
+    settings = AppSettings(
+        interface_cfg="interface/stlink-v2.cfg",
+        scripts_search_path=str(scripts_dir),
+    )
+    dialog = SettingsDialog(settings)
+
+    # Verify combo has scanned interfaces (2) plus well-known defaults
+    assert dialog.interface_combo.count() >= 2
+    assert dialog.interface_combo.currentText() == "interface/stlink-v2.cfg"
+
+    # Test with custom value
+    dialog2 = SettingsDialog(AppSettings(interface_cfg="interface/custom.cfg"))
+    assert dialog2.interface_combo.currentText() == "interface/custom.cfg"
+
+    dialog.close()
+    dialog2.close()
 
 
 def test_about_dialog(qapp: QApplication) -> None:
