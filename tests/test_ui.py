@@ -133,7 +133,6 @@ def test_settings_dialog_roundtrip(qapp: QApplication, tmp_path) -> None:
     )
     dialog = SettingsDialog(base)
     dialog.openocd_edit.setText(str(tmp_path / "openocd.exe"))
-    dialog.interface_combo.setEditText("interface/stlink-v2.cfg")
     dialog.scripts_edit.setText(str(tmp_path))
     dialog.timeout_edit.setText("not-a-number")
     dialog.theme_combo.setCurrentIndex(dialog.theme_combo.findData("light"))
@@ -141,7 +140,7 @@ def test_settings_dialog_roundtrip(qapp: QApplication, tmp_path) -> None:
     out = dialog.to_settings(base)
     assert out.last_firmware_path == "keep.elf"
     assert out.target_cfg == "target/stm32f1x.cfg"
-    assert out.interface_cfg == "interface/stlink-v2.cfg"
+    assert out.interface_cfg == "interface/stlink.cfg"
     assert out.job_timeout_sec == 120.0
     assert out.theme_mode == "light"
     assert out.flash_mode == "sequential"
@@ -404,33 +403,6 @@ def test_config_panel_dropdown_refresh(qapp: QApplication, tmp_path) -> None:
     panel.apply_settings(settings3)
     assert panel.target_combo.count() >= 1  # well-known defaults always present
     assert panel.target_combo.currentText() == "target/stm32f1x.cfg"
-
-
-def test_settings_dialog_interface_dropdown(qapp: QApplication, tmp_path) -> None:
-    """Test that settings dialog interface combo refreshes with options."""
-    # Create scripts directory with interface configs
-    scripts_dir = tmp_path / "scripts"
-    iface_dir = scripts_dir / "interface"
-    iface_dir.mkdir(parents=True)
-    (iface_dir / "stlink.cfg").write_text("", encoding="utf-8")
-    (iface_dir / "stlink-v2.cfg").write_text("", encoding="utf-8")
-
-    settings = AppSettings(
-        interface_cfg="interface/stlink-v2.cfg",
-        scripts_search_path=str(scripts_dir),
-    )
-    dialog = SettingsDialog(settings)
-
-    # Verify combo has scanned interfaces (2) plus well-known defaults
-    assert dialog.interface_combo.count() >= 2
-    assert dialog.interface_combo.currentText() == "interface/stlink-v2.cfg"
-
-    # Test with custom value
-    dialog2 = SettingsDialog(AppSettings(interface_cfg="interface/custom.cfg"))
-    assert dialog2.interface_combo.currentText() == "interface/custom.cfg"
-
-    dialog.close()
-    dialog2.close()
 
 
 def test_about_dialog(qapp: QApplication) -> None:

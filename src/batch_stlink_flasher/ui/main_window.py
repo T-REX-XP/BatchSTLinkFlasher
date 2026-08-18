@@ -204,9 +204,15 @@ class MainWindow(QMainWindow):
 
         status = QStatusBar()
         self.setStatusBar(status)
+        self._status_label = QLabel()
+        self._status_label.setObjectName("statusMessage")
+        self._status_label.setTextInteractionFlags(
+            Qt.TextInteractionFlag.TextSelectableByMouse
+        )
         status.addWidget(self.tools_summary, 1)
+        status.addWidget(self._status_label, 1)
         status.addPermanentWidget(self.summary_label)
-        status.showMessage("Ready — Refresh to scan for ST-Links")
+        self._status("Ready — Refresh to scan for ST-Links")
 
         self._build_menu()
         self._connect_signals()
@@ -226,11 +232,11 @@ class MainWindow(QMainWindow):
         if initial_adapters is not None:
             self._on_discovery_ok(list(initial_adapters))
             if initial_scan_error:
-                self.statusBar().showMessage(f"Startup scan warning: {initial_scan_error}")
+                self._status(f"Startup scan warning: {initial_scan_error}")
             elif not initial_adapters:
-                self.statusBar().showMessage("Startup scan: no ST-Link adapters found")
+                self._status("Startup scan: no ST-Link adapters found")
             else:
-                self.statusBar().showMessage(
+                self._status(
                     f"Startup scan: found {len(initial_adapters)} adapter(s)"
                 )
         elif initial_scan_error:
@@ -318,7 +324,7 @@ class MainWindow(QMainWindow):
         save_settings(updated)
         self.set_theme_mode(updated.theme_mode)
         self._update_tools_summary()
-        self.statusBar().showMessage("Settings saved")
+        self._status("Settings saved")
 
     def _update_tools_summary(self) -> None:
         from batch_stlink_flasher.services.settings import FlashMode, normalize_flash_mode
@@ -343,6 +349,10 @@ class MainWindow(QMainWindow):
             + f"\nflash mode: {flash_mode.value}"
             + "\n(Edit → Settings)"
         )
+
+    def _status(self, text: str) -> None:
+        """Set the status-bar message (avoids showMessage overlap)."""
+        self._status_label.setText(text)
 
     def set_theme_mode(self, mode: ThemeMode | str) -> None:
         """Apply and persist appearance preference."""
@@ -404,7 +414,7 @@ class MainWindow(QMainWindow):
         self.main_splitter.setSizes([320, 280])
         self.device_table._last_width_bucket = None  # noqa: SLF001
         self.device_table.apply_width_layout(self.device_table.viewport().width())
-        self.statusBar().showMessage("Layout reset")
+        self._status("Layout reset")
 
     def _connect_signals(self) -> None:
         self.refresh_btn.clicked.connect(self.refresh_devices)
@@ -419,16 +429,16 @@ class MainWindow(QMainWindow):
 
     def refresh_devices(self) -> None:
         if self._flash is not None and self._flash.isRunning():
-            self.statusBar().showMessage("Cannot refresh while flashing")
+            self._status("Cannot refresh while flashing")
             return
         if self._identify is not None and self._identify.isRunning():
-            self.statusBar().showMessage("Cannot refresh while identifying")
+            self._status("Cannot refresh while identifying")
             return
         if self._discovery is not None and self._discovery.isRunning():
             return
 
         self.refresh_btn.setEnabled(False)
-        self.statusBar().showMessage("Scanning for ST-Links...")
+        self._status("Scanning for ST-Links...")
         worker = DiscoveryWorker()
         worker.finished_ok.connect(self._on_discovery_ok)
         worker.failed.connect(self._on_discovery_failed)
@@ -438,11 +448,11 @@ class MainWindow(QMainWindow):
 
     def _on_discovery_ok(self, adapters: list) -> None:
         self.device_table.set_adapters(adapters)
-        self.statusBar().showMessage(f"Found {len(adapters)} adapter(s)")
+        self._status(f"Found {len(adapters)} adapter(s)")
         self._update_summary_idle()
 
     def _on_discovery_failed(self, message: str) -> None:
-        self.statusBar().showMessage(f"Discovery failed: {message}")
+        self._status(f"Discovery failed: {message}")
         QMessageBox.warning(self, "Discovery failed", message)
 
     def identify_selected(self) -> None:
@@ -479,7 +489,7 @@ class MainWindow(QMainWindow):
         )
         self.log_view.append_line(f"--- identify LED: {adapter.serial} ({port}) ---")
         self._session.append(f"--- identify LED: {adapter.serial} ({port}) ---")
-        self.statusBar().showMessage(f"Blinking LED on {port}… watch the programmer")
+        self._status(f"Blinking LED on {port}… watch the programmer")
         self.identify_btn.setEnabled(False)
         self.refresh_btn.setEnabled(False)
         self.flash_btn.setEnabled(False)
@@ -492,11 +502,11 @@ class MainWindow(QMainWindow):
         worker.start()
 
     def _on_identify_ok(self, serial: str) -> None:
-        self.statusBar().showMessage(f"Identify done for {serial}")
+        self._status(f"Identify done for {serial}")
         self.log_view.append_line(f"--- identify done: {serial} ---")
 
     def _on_identify_failed(self, message: str) -> None:
-        self.statusBar().showMessage(f"Identify failed: {message}")
+        self._status(f"Identify failed: {message}")
         self.log_view.append_line(f"--- identify failed: {message} ---")
         QMessageBox.warning(
             self,
@@ -578,14 +588,14 @@ class MainWindow(QMainWindow):
         worker.failed.connect(self._on_flash_failed)
         self._flash = worker
         worker.start()
-        self.statusBar().showMessage(f"Flashing {len(adapters)} device(s): {mode}")
+        self._status(f"Flashing {len(adapters)} device(s): {mode}")
         self.log_view.append_line(f"--- mode: {mode} ---")
         self._session.append(f"--- mode: {mode} ---")
 
     def cancel_flash(self) -> None:
         if self._flash is not None and self._flash.isRunning():
             self._flash.cancel()
-            self.statusBar().showMessage("Cancel requested...")
+            self._status("Cancel requested...")
             self.log_view.append_line("--- cancel requested ---")
             self._session.append("--- cancel requested ---")
 
@@ -619,7 +629,7 @@ class MainWindow(QMainWindow):
         )
         self.log_view.append_line(done)
         self._session.append(done)
-        self.statusBar().showMessage(
+        self._status(
             f"Finished: {summary.succeeded} succeeded, {summary.failed} failed, "
             f"{summary.cancelled} cancelled"
         )
@@ -636,7 +646,7 @@ class MainWindow(QMainWindow):
         self._session.append(f"ERROR: {message}")
         QMessageBox.critical(self, "Flash error", message)
         self._set_idle_controls()
-        self.statusBar().showMessage(f"Flash error: {message}")
+        self._status(f"Flash error: {message}")
 
     def _clear_log(self) -> None:
         self.log_view.clear_log()
@@ -664,7 +674,7 @@ class MainWindow(QMainWindow):
         except OSError as exc:
             QMessageBox.warning(self, "Export failed", str(exc))
             return
-        self.statusBar().showMessage(f"Log exported to {path}")
+        self._status(f"Log exported to {path}")
 
     def _set_idle_controls(self) -> None:
         self.flash_btn.setEnabled(True)

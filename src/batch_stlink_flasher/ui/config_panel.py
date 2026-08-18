@@ -16,7 +16,9 @@ from PySide6.QtWidgets import (
 from batch_stlink_flasher.flashing.openocd import default_bin_base_address
 from batch_stlink_flasher.services.settings import AppSettings
 from batch_stlink_flasher.ui.config_scanner import (
+    WELL_KNOWN_INTERFACES,
     WELL_KNOWN_TARGETS,
+    get_default_interface_config,
     get_default_target_config,
     infer_scripts_dir_from_openocd,
     looks_like_scripts_dir,
@@ -33,6 +35,17 @@ class ConfigPanel(QWidget):
         super().__init__(parent)
         self.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
         self.firmware_edit = QLineEdit()
+        self.interface_combo = QComboBox()
+        self.interface_combo.setEditable(True)
+        self.interface_combo.setInsertPolicy(QComboBox.InsertPolicy.NoInsert)
+        self.interface_combo.setMinimumHeight(26)
+        self.interface_combo.setSizePolicy(
+            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed,
+        )
+        self.interface_combo.setSizeAdjustPolicy(
+            QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon
+        )
+        self.interface_combo.setMinimumContentsLength(20)
         self.target_combo = QComboBox()
         self.target_combo.setEditable(True)
         self.target_combo.setInsertPolicy(QComboBox.InsertPolicy.NoInsert)
@@ -54,12 +67,18 @@ class ConfigPanel(QWidget):
         form.setVerticalSpacing(4)
         form.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.ExpandingFieldsGrow)
         form.addRow("Firmware:", path_browse_row(self.firmware_edit, self._browse_firmware))
+        form.addRow("Interface cfg:", self.interface_combo)
         form.addRow("Target cfg:", self.target_combo)
         form.addRow("BIN base:", self.bin_base_edit)
 
     def apply_settings(self, settings: AppSettings) -> None:
         self.firmware_edit.setText(settings.last_firmware_path)
         self.bin_base_edit.setText(settings.bin_base_address or f"0x{default_bin_base_address():X}")
+        self._refresh_interface_options(
+            settings.interface_cfg,
+            settings.scripts_search_path,
+            settings.openocd_path,
+        )
         self._refresh_target_options(
             settings.target_cfg,
             settings.scripts_search_path,
@@ -71,10 +90,13 @@ class ConfigPanel(QWidget):
         target_cfg = self.target_combo.currentText().strip()
         if not target_cfg:
             target_cfg = get_default_target_config()
+        interface_cfg = self.interface_combo.currentText().strip()
+        if not interface_cfg:
+            interface_cfg = get_default_interface_config()
         return AppSettings(
             openocd_path=base.openocd_path,
             last_firmware_path=self.firmware_edit.text().strip(),
-            interface_cfg=base.interface_cfg,
+            interface_cfg=interface_cfg,
             target_cfg=target_cfg,
             scripts_search_path=base.scripts_search_path,
             bin_base_address=self.bin_base_edit.text().strip()
@@ -143,3 +165,35 @@ class ConfigPanel(QWidget):
                 self.target_combo.setEditText(current_value)
         elif merged:
             self.target_combo.setCurrentIndex(0)
+
+    def _refresh_interface_options(self, current_value: str, scripts_path: str = "", openocd_path: str = "") -> None:
+        """Refresh the interface combo box options from scripts directory."""
+        # If scripts_path is empty, doesn't exist, or doesn't contain an
+        # interface/ or target/ subdirectory, try to infer from the OpenOCD exe.
+        if not scripts_path or not looks_like_scripts_dir(scripts_path):
+            inferred = infer_scripts_dir_from_openocd(openocd_path)
+            if inferred is not None:
+                scripts_path = str(inferred)
+
+        interface_configs, _ = scan_scripts_directory(scripts_path)
+
+        # Merge well-known defaults so the dropdown is never empty.
+        merged: list[str] = []
+        seen: set[str] = set()
+        for cfg in list(WELL_KNOWN_INTERFACES) + interface_configs:
+            if cfg not in seen:
+                merged.append(cfg)
+                seen.add(cfg)
+
+        self.interface_combo.clear()
+        for cfg in merged:
+            self.interface_combo.addItem(cfg, cfg)
+
+        if current_value:
+            idx = self.interface_combo.findData(current_value)
+            if idx >= 0:
+                self.interface_combo.setCurrentIndex(idx)
+            else:
+                self.interface_combo.setEditText(current_value)
+        elif merged:
+            self.interface_combo.setCurrentIndex(0)
