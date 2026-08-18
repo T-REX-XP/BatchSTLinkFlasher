@@ -64,11 +64,11 @@ def build_openocd_command(
     argv.extend(
         [
             "-c",
-            f"gdb_port {ports.gdb}",
+            f"gdb port {ports.gdb}",
             "-c",
-            f"telnet_port {ports.telnet}",
+            f"telnet port {ports.telnet}",
             "-c",
-            f"tcl_port {ports.tcl}",
+            f"tcl port {ports.tcl}",
             "-c",
             build_program_command(
                 config.firmware_path,

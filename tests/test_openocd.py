@@ -73,11 +73,11 @@ def test_build_openocd_command_elf(tmp_path: Path, ports: OpenOcdPorts) -> None:
     ]
     assert "-c" in argv
     assert "hla_serial 66FF67065648574854362567" in argv
-    assert "gdb_port 3333" in argv
-    assert "telnet_port 4444" in argv
-    assert "tcl_port 6666" in argv
+    assert "gdb port 3333" in argv
+    assert "telnet port 4444" in argv
+    assert "tcl port 6666" in argv
 
-    program = argv[argv.index("tcl_port 6666") + 2]
+    program = argv[argv.index("tcl port 6666") + 2]
     assert program.startswith("program ")
     assert "verify reset exit" in program
     # .elf must not inject a flash base address token before verify
@@ -116,7 +116,7 @@ def test_build_openocd_command_omits_empty_serial(
     cfg = _config(tmp_path, "app.elf")
     argv = build_openocd_command(cfg, "  ", ports)
     assert not any(isinstance(a, str) and a.startswith("hla_serial") for a in argv)
-    assert "gdb_port 3333" in argv
+    assert "gdb port 3333" in argv
 
 
 def test_build_openocd_command_rejects_bin_without_address(
