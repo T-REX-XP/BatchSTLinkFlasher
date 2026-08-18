@@ -148,4 +148,6 @@ Do **not** change stack without updating `docs/architecture.md` and this section
 | `docs/packaging.md` | PyInstaller, installer, CI / release |
 | `AGENTS.md` | How AI agents must work in this repo |
 | `CHANGELOG.md` | User-visible change history |
+| `docs/copilot-reference.md` | Copilot skills, agents, MCP tools reference |
+| `docs/copilot-reference.md` | Skills, agents, rules, MCP tools reference |
 | `README.md` | Install, run, operator quick start |
