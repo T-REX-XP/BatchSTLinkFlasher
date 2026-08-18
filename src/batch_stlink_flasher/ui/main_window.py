@@ -105,18 +105,6 @@ class MainWindow(QMainWindow):
         self.act_identify.setIcon(themed_icon("icon_identify.svg"))
         self.act_identify.triggered.connect(self.identify_selected)
 
-        self.act_settings = QAction("Settings", self)
-        self.act_settings.setToolTip("OpenOCD path, interface, timeout, theme…")
-        self.act_settings.setShortcut(QKeySequence("Ctrl+,"))
-        self.act_settings.setIcon(themed_icon("icon_settings.svg"))
-        self.act_settings.triggered.connect(self.open_settings)
-
-        self.act_export = QAction("Export", self)
-        self.act_export.setToolTip("Export session log")
-        self.act_export.setShortcut(QKeySequence("Ctrl+S"))
-        self.act_export.setIcon(themed_icon("icon_export.svg"))
-        self.act_export.triggered.connect(self.export_log)
-
         self.act_clear_log = QAction("Clear log", self)
         self.act_clear_log.setIcon(themed_icon("icon_clear.svg"))
         self.act_clear_log.triggered.connect(self._clear_log)
@@ -142,8 +130,6 @@ class MainWindow(QMainWindow):
         toolbar.addAction(self.act_select_none)
         toolbar.addAction(self.act_identify)
         toolbar.addSeparator()
-        toolbar.addAction(self.act_settings)
-        toolbar.addAction(self.act_export)
         toolbar.addAction(self.act_clear_log)
         toolbar.addSeparator()
         toolbar.addAction(self.act_cancel)
@@ -385,8 +371,6 @@ class MainWindow(QMainWindow):
             self.act_select_all: "icon_check_all.svg",
             self.act_select_none: "icon_uncheck_all.svg",
             self.act_identify: "icon_identify.svg",
-            self.act_settings: "icon_settings.svg",
-            self.act_export: "icon_export.svg",
             self.act_clear_log: "icon_clear.svg",
             self.act_cancel: "icon_cancel.svg",
             self.act_flash: "icon_flash.svg",

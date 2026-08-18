@@ -639,7 +639,7 @@ _PAPIRUS_ICONS: dict[str, str] = {
     "icon_settings.svg": "configure.svg",
     "icon_export.svg": "edit-download.svg",
     "icon_clear.svg": "edit-clear.svg",
-    "icon_cancel.svg": "window-close.svg",
+    "icon_cancel.svg": "process-stop.svg",
     "icon_flash.svg": "system-run.svg",
 }
 
@@ -649,9 +649,8 @@ def _papirus_path(filename: str) -> Path:
 
 
 def themed_icon(name: str) -> QIcon:
-    """Return a theme-aware QIcon from the Papirus icon set."""
-    p = active_palette()
-    cache_key = f"{name}|{p.text}"
+    """Return a QIcon from the Papirus icon set (colored, no recoloring needed)."""
+    cache_key = name
     cached = _ICON_CACHE.get(cache_key)
     if cached is not None:
         return cached
@@ -665,14 +664,12 @@ def themed_icon(name: str) -> QIcon:
         return QIcon()
 
     raw = src.read_text(encoding="utf-8")
-    # Replace the primary text color with the active palette color.
-    recolored = raw.replace(_PAPIRUS_PRIMARY, p.text)
 
     # Render to QPixmap via QSvgRenderer — no temp files, no caching bugs.
     from PySide6.QtSvg import QSvgRenderer
     from PySide6.QtCore import QByteArray
 
-    renderer = QSvgRenderer(QByteArray(recolored.encode("utf-8")))
+    renderer = QSvgRenderer(QByteArray(raw.encode("utf-8")))
     size = 24
     pix = QPixmap(size, size)
     pix.fill(Qt.GlobalColor.transparent)
